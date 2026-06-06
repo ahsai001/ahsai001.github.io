@@ -1,0 +1,1081 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Token Analyzer</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --card: #13131a;
+      --border: #1e1e2a;
+      --text: #e0e0e0;
+      --muted: #777;
+      --green: #00c853;
+      --red: #ff1744;
+      --yellow: #ffc107;
+      --blue: #448aff;
+      --accent: #7c4dff;
+      --orange: #ff9100;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+      background-image:
+        radial-gradient(ellipse at 20% 50%, rgba(124, 77, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(68, 138, 255, 0.06) 0%, transparent 50%);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 850px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .header {
+      text-align: center;
+      padding: 30px 0 10px;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--accent), var(--blue));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header p {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 0.9rem;
+    }
+
+    .search-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .search-card input {
+      flex: 1;
+      min-width: 200px;
+      padding: 14px 18px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-card input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-card input::placeholder {
+      color: #555;
+    }
+
+    .btn {
+      padding: 14px 28px;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #651fff);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 25px rgba(124, 77, 255, 0.35);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 40px;
+      color: var(--muted);
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .error-msg {
+      background: rgba(255, 23, 68, 0.1);
+      border: 1px solid rgba(255, 23, 68, 0.3);
+      color: var(--red);
+      padding: 16px 20px;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 0.9rem;
+    }
+
+    .result {
+      display: none;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .result.active {
+      display: flex;
+    }
+
+    .verdict-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      text-align: center;
+    }
+
+    .verdict-label {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .verdict-badge {
+      display: inline-block;
+      padding: 12px 32px;
+      border-radius: 50px;
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: 1px;
+      margin: 12px 0;
+    }
+
+    .verdict-badge.buy {
+      background: rgba(0, 200, 83, 0.15);
+      color: var(--green);
+      border: 2px solid rgba(0, 200, 83, 0.3);
+    }
+
+    .verdict-badge.wait {
+      background: rgba(255, 193, 7, 0.15);
+      color: var(--yellow);
+      border: 2px solid rgba(255, 193, 7, 0.3);
+    }
+
+    .verdict-badge.sell {
+      background: rgba(255, 23, 68, 0.15);
+      color: var(--red);
+      border: 2px solid rgba(255, 23, 68, 0.3);
+    }
+
+    .score {
+      font-size: 3rem;
+      font-weight: 700;
+      margin: 8px 0;
+    }
+
+    .score.green {
+      color: var(--green);
+    }
+
+    .score.yellow {
+      color: var(--yellow);
+    }
+
+    .score.red {
+      color: var(--red);
+    }
+
+    .data-source {
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    .data-source a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    .token-info {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .info-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+    }
+
+    .info-card .label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+
+    .info-card .value {
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .chart-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      overflow: hidden;
+    }
+
+    .chart-card h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .chart-legend {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+      font-size: 0.75rem;
+    }
+
+    .chart-legend span {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .chart-dot {
+      width: 10px;
+      height: 3px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    .bar-container {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+    }
+
+    .bar-container h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .bar-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .bar-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .bar-label {
+      width: 105px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      white-space: nowrap;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 8px;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.6s ease;
+    }
+
+    .bar-fill.green {
+      background: var(--green);
+    }
+
+    .bar-fill.yellow {
+      background: var(--yellow);
+    }
+
+    .bar-fill.red {
+      background: var(--red);
+    }
+
+    .bar-fill.blue {
+      background: var(--blue);
+    }
+
+    .bar-fill.purple {
+      background: var(--accent);
+    }
+
+    .bar-percent {
+      width: 48px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      text-align: right;
+    }
+
+    .gauge-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .gauge-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      text-align: center;
+    }
+
+    .gauge-card .label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    .gauge-circle {
+      position: relative;
+      width: 80px;
+      height: 80px;
+      margin: 0 auto 8px;
+    }
+
+    .gauge-circle svg {
+      transform: rotate(-90deg);
+    }
+
+    .gauge-circle .bg {
+      fill: none;
+      stroke: rgba(255, 255, 255, 0.06);
+      stroke-width: 8;
+    }
+
+    .gauge-circle .fill {
+      fill: none;
+      stroke-width: 8;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.8s ease;
+    }
+
+    .gauge-value {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .risk-box {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+    }
+
+    .risk-box h3 {
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .risk-box ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .risk-box li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.9rem;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+    }
+
+    .risk-box li:last-child {
+      border-bottom: none;
+    }
+
+    .icon-circle {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .note {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--muted);
+      padding: 10px 0;
+    }
+
+    .note a {
+      color: var(--blue);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Token Analyzer</h1>
+      <p>Analisa kelayakan token / crypto untuk buy — data real-time CoinGecko</p>
+    </div>
+
+    <div class="search-card">
+      <input type="text" id="tokenInput"
+        placeholder="Masukkan nama token, contoh: bitcoin, ethereum, solana, dogecoin..." autocomplete="off">
+      <button class="btn btn-primary" id="analyzeBtn" onclick="analyze()">Analisa</button>
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <span id="loadingText">Mencari token...</span>
+    </div>
+
+    <div id="errorBox" style="display:none;"></div>
+    <div class="result" id="result"></div>
+
+    <p class="note">* Data dari <a href="https://coingecko.com" target="_blank">CoinGecko API</a> (gratis). Bukan
+      rekomendasi finansial — selalu DYOR.</p>
+  </div>
+
+  <script>
+    const CG_BASE = 'https://api.coingecko.com/api/v3';
+
+    function calcEMA(prices, period) {
+      if (prices.length < period) return null;
+      const k = 2 / (period + 1);
+      let ema = prices.slice(0, period).reduce((a, b) => a + b, 0) / period;
+      for (let i = period; i < prices.length; i++) {
+        ema = prices[i] * k + ema * (1 - k);
+      }
+      return ema;
+    }
+
+    function calcAllEMA(prices, period) {
+      const k = 2 / (period + 1);
+      const result = new Array(prices.length).fill(null);
+      if (prices.length < period) return result;
+      let ema = prices.slice(0, period).reduce((a, b) => a + b, 0) / period;
+      result[period - 1] = ema;
+      for (let i = period; i < prices.length; i++) {
+        ema = prices[i] * k + ema * (1 - k);
+        result[i] = ema;
+      }
+      return result;
+    }
+
+    function calcRSI(prices, period = 14) {
+      if (prices.length < period + 1) return null;
+      let gains = 0, losses = 0;
+      for (let i = 1; i <= period; i++) {
+        const diff = prices[i] - prices[i - 1];
+        if (diff >= 0) gains += diff; else losses -= diff;
+      }
+      let avgGain = gains / period;
+      let avgLoss = losses / period;
+      for (let i = period + 1; i < prices.length; i++) {
+        const diff = prices[i] - prices[i - 1];
+        avgGain = (avgGain * (period - 1) + (diff > 0 ? diff : 0)) / period;
+        avgLoss = (avgLoss * (period - 1) + (diff < 0 ? -diff : 0)) / period;
+      }
+      if (avgLoss === 0) return 100;
+      const rs = avgGain / avgLoss;
+      return 100 - (100 / (1 + rs));
+    }
+
+    function calcMACD(prices) {
+      const ema12Arr = calcAllEMA(prices, 12);
+      const ema26Arr = calcAllEMA(prices, 26);
+      const macdLine = [];
+      for (let i = 0; i < prices.length; i++) {
+        if (ema12Arr[i] !== null && ema26Arr[i] !== null) {
+          macdLine.push(ema12Arr[i] - ema26Arr[i]);
+        } else {
+          macdLine.push(null);
+        }
+      }
+      const validMacd = macdLine.filter(v => v !== null);
+      if (validMacd.length < 9) return { macd: null, signal: null, histogram: null };
+      const signalArr = calcAllEMA(validMacd, 9);
+      const latestMacd = validMacd[validMacd.length - 1];
+      const latestSignal = signalArr[signalArr.length - 1];
+      return {
+        macd: latestMacd,
+        signal: latestSignal,
+        histogram: latestMacd - latestSignal
+      };
+    }
+
+    async function apiFetch(url) {
+      const resp = await fetch(url);
+      if (resp.status === 429) throw new Error('Rate limit CoinGecko tercapai. Tunggu 1 menit lalu coba lagi.');
+      if (!resp.ok) throw new Error(`API error: ${resp.status}`);
+      return resp.json();
+    }
+
+    async function searchCoin(query) {
+      const data = await apiFetch(`${CG_BASE}/search?query=${encodeURIComponent(query)}`);
+      if (!data.coins || data.coins.length === 0) return null;
+      const q = query.toLowerCase();
+      const exact = data.coins.find(c =>
+        c.symbol.toLowerCase() === q || c.name.toLowerCase() === q || c.id.toLowerCase() === q
+      );
+      return exact || data.coins[0];
+    }
+
+    async function analyze() {
+      const input = document.getElementById('tokenInput').value.trim();
+      if (!input) return;
+
+      const btn = document.getElementById('analyzeBtn');
+      const loading = document.getElementById('loading');
+      const loadingText = document.getElementById('loadingText');
+      const result = document.getElementById('result');
+      const errorBox = document.getElementById('errorBox');
+
+      btn.disabled = true;
+      if (result) { result.classList.remove('active'); result.innerHTML = ''; }
+      if (errorBox) { errorBox.style.display = 'none'; }
+      if (loading) loading.classList.add('active');
+      if (loadingText) loadingText.textContent = 'Mencari token di CoinGecko...';
+
+      try {
+        const coin = await searchCoin(input);
+        if (!coin) throw new Error(`Token "${input}" tidak ditemukan di CoinGecko.`);
+
+        loadingText.textContent = `Mengambil data ${coin.name} (${coin.symbol.toUpperCase()})...`;
+        const [coinData, marketChart] = await Promise.all([
+          apiFetch(`${CG_BASE}/coins/${coin.id}?localization=false&tickers=false&community_data=false&developer_data=false`),
+          apiFetch(`${CG_BASE}/coins/${coin.id}/market_chart?vs_currency=usd&days=90`)
+        ]);
+
+        loadingText.textContent = 'Menghitung indikator teknikal...';
+        const prices = marketChart.prices.map(p => p[1]);
+        const totalVolumes = marketChart.total_volumes ? marketChart.total_volumes.map(v => v[1]) : [];
+
+        if (prices.length < 30) throw new Error('Data historis terlalu sedikit untuk analisa.');
+
+        const mk = coinData.market_data;
+        const price = mk.current_price.usd;
+        const change24h = mk.price_change_percentage_24h || 0;
+        const marketCap = mk.market_cap.usd;
+        const volume24h = mk.total_volume.usd;
+        const athPrice = mk.ath.usd;
+        const atlPrice = mk.atl.usd;
+        const priceVsAth = price / athPrice;
+        const priceVsAtl = atlPrice > 0 ? price / atlPrice : 999;
+
+        const rsi = calcRSI(prices, 14);
+        const ema20 = calcEMA(prices, 20);
+        const ema50 = calcEMA(prices, 50);
+        const macd = calcMACD(prices);
+
+        const avgVol30 = totalVolumes.length >= 30
+          ? totalVolumes.slice(-30).reduce((a, b) => a + b, 0) / 30
+          : totalVolumes.reduce((a, b) => a + b, 0) / totalVolumes.length;
+        const volRatio = avgVol30 > 0 ? totalVolumes[totalVolumes.length - 1] / avgVol30 : 1;
+
+        const emaGapPct = ema20 && ema50 ? ((ema20 - ema50) / ema50) * 100 : 0;
+        let emaCross;
+        if (emaGapPct > 1.5) emaCross = 'golden_cross';
+        else if (emaGapPct < -1.5) emaCross = 'death_cross';
+        else emaCross = 'neutral';
+
+        const macdHistogram = macd.histogram;
+
+        const priceAboveEma20 = ema20 !== null && price > ema20;
+        const priceAboveEma50 = ema50 !== null && price > ema50;
+        const priceDec = price < 0.01 ? 6 : price < 1 ? 4 : 2;
+        const ema20AboveEma50 = emaCross === 'golden_cross' || (emaGapPct > 0);
+        const rsiHealthy = rsi !== null && rsi >= 30 && rsi <= 70;
+        const macdBullish = macdHistogram !== null && macdHistogram > 0;
+        const notNearAth = priceVsAth < 0.85;
+        const volumeSolid = volRatio > 0.8;
+        const fmtPrice = (n) => {
+          if (n == null || isNaN(n)) return 'N/A';
+          if (n >= 1000) return '$' + n.toLocaleString(undefined, {maximumFractionDigits:2});
+          if (n >= 1) return '$' + n.toFixed(2);
+          if (n >= 0.01) return '$' + n.toFixed(4);
+          return '$' + n.toFixed(6);
+        };
+
+        const checks = [
+          { key: 'ema',   label: 'EMA 20 > EMA 50',        desc: 'Golden Cross — tren naik',                                             met: ema20AboveEma50, detail: `EMA20: ${fmtPrice(ema20)} | EMA50: ${fmtPrice(ema50)} | Gap: ${emaGapPct>0?'+':''}${emaGapPct.toFixed(2)}%`, icon: '📈' },
+          { key: 'price', label: 'Harga > EMA 20',           desc: 'Harga di atas support dinamis',                                      met: priceAboveEma20, detail: `Harga: ${fmtPrice(price)} ${priceAboveEma20?'>':'<'} EMA20: ${fmtPrice(ema20)}`, icon: '💰' },
+          { key: 'vol',   label: 'Volume Mendukung',         desc: 'Volume > rata-rata 30 hari (minat pasar)',                          met: volumeSolid,     detail: `Vol Ratio: ${volRatio.toFixed(2)} (threshold > 0.8)`, icon: '📊' },
+          { key: 'rsi',   label: 'RSI Sehat (30–70)',        desc: 'Tidak overbought / oversold ekstrem',                                met: rsiHealthy,      detail: `RSI: ${rsi ? rsi.toFixed(1) : 'N/A'} ${rsiHealthy ? '✅ Netral' : (rsi>70 ? '⚠️ Overbought' : '⚠️ Oversold')}`, icon: '📉' },
+          { key: 'macd',  label: 'MACD Bullish',             desc: 'Histogram positif — momentum naik',                                  met: macdBullish,     detail: `Histogram: ${macdHistogram ? macdHistogram.toFixed(4) : 'N/A'} ${macdBullish ? '▲ Naik' : '▼ Turun'}`, icon: '📐' },
+          { key: 'ath',   label: 'Jauh dari ATH (<85%)',     desc: 'Masih ada ruang upside signifikan',                                  met: notNearAth,      detail: `${((1-priceVsAth)*100).toFixed(0)}% di bawah ATH (${fmtPrice(athPrice)})`, icon: '🚀' },
+        ];
+
+        const totalChecks = checks.length;
+        const checksMet = checks.filter(c => c.met).length;
+        const checksFailed = checks.filter(c => !c.met);
+
+        let verdict, verdictClass;
+        if (checksMet >= 5) { verdict = 'STRONG BUY'; verdictClass = 'buy'; }
+        else if (checksMet === 4) { verdict = 'LAYAK BUY'; verdictClass = 'buy'; }
+        else if (checksMet === 3) { verdict = 'TUNGGU / WAIT'; verdictClass = 'wait'; }
+        else { verdict = 'JANGAN BUY'; verdictClass = 'sell'; }
+
+        let score = 10 + checksMet * 14;
+        if (emaCross === 'golden_cross') score += 4;
+        if (change24h > 5) score += 2;
+        else if (change24h < -5) score -= 3;
+        if (priceAboveEma50) score += 3;
+        score = Math.max(5, Math.min(98, Math.round(score)));
+
+        const risks = [];
+        const strengths = [];
+        checks.forEach(c => {
+          if (c.met) strengths.push({ text: `${c.label} — ${c.detail}`, color: 'green' });
+          else risks.push({ text: `${c.label} — ${c.detail}`, color: c.key === 'vol' || c.key === 'rsi' ? 'yellow' : 'red' });
+        });
+        if (emaCross === 'golden_cross') strengths.push({ text: `Golden Cross terkonfirmasi (gap +${emaGapPct.toFixed(2)}%)`, color: 'green' });
+        if (emaCross === 'death_cross') risks.push({ text: `Death Cross terkonfirmasi (gap ${emaGapPct.toFixed(2)}%)`, color: 'red' });
+        if (change24h < -7) risks.push({ text: `Penurunan tajam 24 jam (${change24h.toFixed(1)}%)`, color: 'red' });
+        if (change24h > 7) strengths.push({ text: `Kenaikan kuat 24 jam (+${change24h.toFixed(1)}%)`, color: 'green' });
+
+        const data = {
+          symbol: coin.symbol.toUpperCase(), name: coin.name, coinId: coin.id,
+          price, change24h, marketCap, volume24h,
+          athPrice, atlPrice, priceVsAth, priceVsAtl,
+          rsi, macdSignal: macdHistogram, macdLine: macd.macd,
+          volRatio, ema20, ema50, emaGapPct, emaCross,
+          priceAboveEma20, priceAboveEma50,
+          checks, checksMet, totalChecks, checksFailed,
+          score, verdict, verdictClass,
+          strengths, risks,
+          prices, ema20Arr: calcAllEMA(prices, 20), ema50Arr: calcAllEMA(prices, 50),
+          priceDecimals: price < 0.01 ? 6 : price < 1 ? 4 : 2,
+        };
+
+        loading.classList.remove('active');
+        btn.disabled = false;
+        renderResult(data);
+        result.classList.add('active');
+      } catch (err) {
+        loading.classList.remove('active');
+        btn.disabled = false;
+        errorBox.style.display = 'block';
+        errorBox.innerHTML = `<div class="error-msg">${err.message}</div>`;
+        console.error(err);
+      }
+    }
+
+    function renderChart(d) {
+      const w = 780, h = 240, pad = { top: 15, right: 20, bottom: 25, left: 60 };
+      const pw = w - pad.left - pad.right;
+      const ph = h - pad.top - pad.bottom;
+
+      const validPrices = d.prices.filter((_, i) => d.prices.length - i <= 90);
+      const n = validPrices.length;
+      if (n < 2) return '';
+
+      const allVals = [...validPrices];
+      d.ema20Arr.slice(-n).forEach(v => { if (v !== null) allVals.push(v); });
+      d.ema50Arr.slice(-n).forEach(v => { if (v !== null) allVals.push(v); });
+      const minVal = Math.min(...allVals);
+      const maxVal = Math.max(...allVals);
+      const range = maxVal - minVal || 1;
+
+      const x = (i) => pad.left + (i / (n - 1)) * pw;
+      const y = (v) => pad.top + ph - ((v - minVal) / range) * ph;
+
+      let pathPrice = '';
+      for (let i = 0; i < n; i++) {
+        pathPrice += `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(validPrices[i]).toFixed(1)} `;
+      }
+
+      let pathEma20 = '';
+      let started20 = false;
+      for (let i = 0; i < n; i++) {
+        const v = d.ema20Arr[d.ema20Arr.length - n + i];
+        if (v !== null) {
+          pathEma20 += `${started20 ? 'L' : 'M'} ${x(i).toFixed(1)} ${y(v).toFixed(1)} `;
+          started20 = true;
+        }
+      }
+
+      let pathEma50 = '';
+      let started50 = false;
+      for (let i = 0; i < n; i++) {
+        const v = d.ema50Arr[d.ema50Arr.length - n + i];
+        if (v !== null) {
+          pathEma50 += `${started50 ? 'L' : 'M'} ${x(i).toFixed(1)} ${y(v).toFixed(1)} `;
+          started50 = true;
+        }
+      }
+
+      const yLabels = [];
+      for (let i = 0; i <= 4; i++) {
+        const val = minVal + (range / 4) * i;
+        yLabels.push(val);
+      }
+
+      return `
+    <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;">
+      ${yLabels.map(v =>
+        `<line x1="${pad.left}" y1="${y(v).toFixed(1)}" x2="${w - pad.right}" y2="${y(v).toFixed(1)}" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4,4"/>
+         <text x="${pad.left - 6}" y="${y(v).toFixed(1)}" fill="#555" font-size="10" text-anchor="end" dominant-baseline="middle">${v < 0.01 ? v.toFixed(6) : v < 1 ? v.toFixed(4) : v < 100 ? v.toFixed(2) : (v / 1000).toFixed(1) + 'K'}</text>`
+      ).join('')}
+      ${pathEma50 ? `<path d="${pathEma50}" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.8"/>` : ''}
+      ${pathEma20 ? `<path d="${pathEma20}" fill="none" stroke="var(--blue)" stroke-width="1.5" opacity="0.9"/>` : ''}
+      <path d="${pathPrice}" fill="none" stroke="var(--text)" stroke-width="2"/>
+    </svg>`;
+    }
+
+    function renderResult(d) {
+      const fmt = (n, dec) => {
+        if (n >= 1e9) return '$' + (n / 1e9).toFixed(dec || 2) + 'B';
+        if (n >= 1e6) return '$' + (n / 1e6).toFixed(dec || 2) + 'M';
+        if (n >= 1e3) return '$' + (n / 1e3).toFixed(dec || 2) + 'K';
+        return '$' + n.toFixed(dec || 2);
+      };
+      const fmtPrice = (n) => {
+        if (n == null || isNaN(n)) return 'N/A';
+        if (n >= 1000) return '$' + n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+        if (n >= 1) return '$' + n.toFixed(2);
+        if (n >= 0.01) return '$' + n.toFixed(4);
+        return '$' + n.toFixed(6);
+      };
+      const pct = (n) => (n >= 0 ? '+' : '') + n.toFixed(2) + '%';
+
+      document.getElementById('result').innerHTML = `
+    <div class="verdict-card">
+      <div class="verdict-label">Rekomendasi</div>
+      <div class="verdict-badge ${d.verdictClass}">${d.verdict}</div>
+      <div class="score ${d.checksMet>=5?'green':(d.checksMet>=3?'yellow':'red')}">${d.score}/100</div>
+      <div style="color:var(--muted);font-size:0.85rem;">${d.checksMet}/${d.totalChecks} indikator terpenuhi — Skor: ${d.score}/100</div>
+      <div class="data-source">Data: <a href="https://www.coingecko.com/en/coins/${d.coinId}" target="_blank">CoinGecko</a></div>
+    </div>
+
+    <div class="verdict-card" style="padding:20px 24px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <span style="background:${d.checksMet>=4?'rgba(0,200,83,0.15)':(d.checksMet>=3?'rgba(255,193,7,0.15)':'rgba(255,23,68,0.15)')};padding:4px 10px;border-radius:6px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${d.checksMet>=4?'var(--green)':(d.checksMet>=3?'var(--yellow)':'var(--red)')};">
+          ${d.checksMet >= 4 ? 'Sinyal Kuat' : (d.checksMet >= 3 ? 'Perlu Konfirmasi' : 'Sinyal Lemah')}
+        </span>
+        <span style="color:var(--muted);font-size:0.78rem;text-transform:uppercase;letter-spacing:1px;"> Insight Analisa</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${d.checks.map((c, i) => `
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:${c.met?'rgba(0,200,83,0.05)':'rgba(255,23,68,0.04)'};border:1px solid ${c.met?'rgba(0,200,83,0.15)':'rgba(255,23,68,0.1)'};">
+            <span style="font-size:1.2rem;width:28px;text-align:center;flex-shrink:0;">${c.met ? '✅' : '❌'}</span>
+            <div style="flex:1;min-width:0;">
+              <div style="font-weight:700;font-size:0.88rem;color:var(--text);">${i+1}. ${c.label}</div>
+              <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.detail}</div>
+            </div>
+            <span style="font-size:0.68rem;font-weight:700;padding:3px 10px;border-radius:20px;background:${c.met?'rgba(0,200,83,0.12)':'rgba(255,23,68,0.12)'};color:${c.met?'var(--green)':'var(--red)'};white-space:nowrap;flex-shrink:0;">
+              ${c.met ? 'PASS' : 'FAIL'}
+            </span>
+          </div>
+        `).join('')}
+      </div>
+      <div style="margin-top:14px;padding:12px 14px;border-radius:10px;background:${d.checksMet>=4?'rgba(0,200,83,0.08)':(d.checksMet>=3?'rgba(255,193,7,0.08)':'rgba(255,23,68,0.06)')};text-align:center;border:1px solid ${d.checksMet>=4?'rgba(0,200,83,0.2)':(d.checksMet>=3?'rgba(255,193,7,0.2)':'rgba(255,23,68,0.15)')};">
+        <div style="font-size:0.85rem;font-weight:700;color:${d.checksMet>=4?'var(--green)':(d.checksMet>=3?'var(--yellow)':'var(--red)')};margin-bottom:4px;">
+          ${d.checksMet >= 5 ? '🔥 STRONG BUY — Semua indikator aligned, peluang entry sangat baik' :
+            d.checksMet === 4 ? '📈 LAYAK BUY — Mayoritas indikator mendukung buy' :
+            d.checksMet === 3 ? '⏳ TUNGGU — Setengah indikator support, tunggu konfirmasi tambahan' :
+            d.checksMet === 2 ? '⚠️ RISIKO TINGGI — Hanya 2/6 indikator, lebih baik hindari buy' :
+            '🛑 JANGAN BUY — Hampir semua indikator menolak, sinyal sangat bearish'}
+        </div>
+        <div style="font-size:0.7rem;color:var(--muted);">
+          ${d.checksFailed.length > 0 ? 'Yang belum terpenuhi: ' + d.checksFailed.map(c => c.label.split(' ')[0]).join(', ') : ''}
+        </div>
+      </div>
+    </div>
+
+    <div class="token-info">
+      <div class="info-card">
+        <div class="label">Token</div>
+        <div class="value">${d.name} (${d.symbol})</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Harga</div>
+        <div class="value">${fmtPrice(d.price)}</div>
+      </div>
+      <div class="info-card">
+        <div class="label">24 Jam</div>
+        <div class="value" style="color:${d.change24h >= 0 ? 'var(--green)' : 'var(--red)'}">${pct(d.change24h)}</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Market Cap</div>
+        <div class="value">${fmt(d.marketCap)}</div>
+      </div>
+      <div class="info-card">
+        <div class="label">Volume 24J</div>
+        <div class="value">${fmt(d.volume24h)}</div>
+      </div>
+      <div class="info-card">
+        <div class="label">ATH / ATL</div>
+        <div class="value" style="font-size:0.9rem;">${fmtPrice(d.athPrice)} / ${fmtPrice(d.atlPrice)}</div>
+      </div>
+      <div class="info-card" style="border-color:${d.emaCross === 'golden_cross' ? 'rgba(0,200,83,0.4)' : (d.emaCross === 'death_cross' ? 'rgba(255,23,68,0.4)' : 'var(--border)')}">
+        <div class="label">EMA 20</div>
+        <div class="value">${fmtPrice(d.ema20)}</div>
+      </div>
+      <div class="info-card" style="border-color:${d.emaCross === 'death_cross' ? 'rgba(255,23,68,0.4)' : (d.emaCross === 'golden_cross' ? 'rgba(0,200,83,0.4)' : 'var(--border)')}">
+        <div class="label">EMA 50</div>
+        <div class="value">${fmtPrice(d.ema50)}</div>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h3>Chart Harga 90 Hari + EMA</h3>
+      <div class="chart-legend">
+        <span><span class="chart-dot" style="background:var(--text);width:14px;"></span> Harga</span>
+        <span><span class="chart-dot" style="background:var(--blue);"></span> EMA 20</span>
+        <span><span class="chart-dot" style="background:var(--accent);"></span> EMA 50</span>
+      </div>
+      ${renderChart(d)}
+    </div>
+
+    <div class="verdict-card" style="padding:14px 20px;text-align:left;font-size:0.85rem;line-height:1.6;">
+      <details style="cursor:pointer;">
+        <summary style="color:var(--muted);font-weight:600;font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;">Apa itu Golden Cross & Death Cross?</summary>
+        <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px;">
+          <div style="background:rgba(0,200,83,0.06);border-left:3px solid var(--green);padding:10px 14px;border-radius:0 8px 8px 0;">
+            <strong style="color:var(--green);">GOLDEN CROSS</strong>
+            <span style="color:var(--muted);display:block;margin-top:4px;">
+              Terjadi saat <b>EMA 20 (jangka pendek) memotong ke ATAS EMA 50 (jangka menengah)</b>. 
+              Sinyal <span style="color:var(--green);">bullish</span> — menandakan momentum naik mulai terbentuk, 
+              sering dianggap sebagai awal tren naik.<br>
+              <i>Analog: "emas" = peluang emas untuk entry buy.</i>
+            </span>
+          </div>
+          <div style="background:rgba(255,23,68,0.06);border-left:3px solid var(--red);padding:10px 14px;border-radius:0 8px 8px 0;">
+            <strong style="color:var(--red);">DEATH CROSS</strong>
+            <span style="color:var(--muted);display:block;margin-top:4px;">
+              Terjadi saat <b>EMA 20 memotong ke BAWAH EMA 50</b>.
+              Sinyal <span style="color:var(--red);">bearish</span> — menandakan momentum turun mulai mendominasi,
+              sering dianggap sebagai awal tren turun.<br>
+              <i>Analog: "death" = saatnya exit / jangan entry buy.</i>
+            </span>
+          </div>
+        </div>
+      </details>
+    </div>
+
+    <div class="gauge-row">
+      <div class="gauge-card">
+        <div class="label">EMA 20</div>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--blue);padding:12px 0;">${fmtPrice(d.ema20)}</div>
+        <div style="font-size:0.75rem;color:var(--muted);">${d.emaCross === 'golden_cross' ? '<span style="color:var(--green);">▲ Di atas EMA50</span>' : (d.emaCross === 'death_cross' ? '<span style="color:var(--red);">▼ Di bawah EMA50</span>' : '≈ Sejajar EMA50')}</div>
+      </div>
+      <div class="gauge-card">
+        <div class="label">EMA 50</div>
+        <div style="font-size:1.3rem;font-weight:700;color:var(--accent);padding:12px 0;">${fmtPrice(d.ema50)}</div>
+        <div style="font-size:0.75rem;color:var(--muted);">Gap: ${d.emaGapPct > 0 ? '+' : ''}${d.emaGapPct.toFixed(2)}%</div>
+      </div>
+      <div class="gauge-card">
+        <div class="label">EMA CROSS</div>
+        <div style="padding:8px 0;">
+          ${d.emaCross === 'golden_cross'
+          ? '<span style="display:inline-block;padding:10px 20px;border-radius:8px;background:rgba(0,200,83,0.12);color:var(--green);font-weight:700;font-size:1rem;">SINYAL BELI</span>'
+          : d.emaCross === 'death_cross'
+            ? '<span style="display:inline-block;padding:10px 20px;border-radius:8px;background:rgba(255,23,68,0.12);color:var(--red);font-weight:700;font-size:1rem;">SINYAL JUAL</span>'
+            : '<span style="display:inline-block;padding:10px 20px;border-radius:8px;background:rgba(255,193,7,0.12);color:var(--yellow);font-weight:700;font-size:1rem;">NO SIGNAL</span>'
+        }
+        </div>
+        <div style="font-size:0.75rem;color:var(--muted);">Konfirmasi crossover EMA</div>
+      </div>
+    </div>
+
+    <div class="gauge-row">
+      <div class="gauge-card">
+        <div class="label">RSI (14)</div>
+        <div class="gauge-circle">
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle class="bg" cx="40" cy="40" r="34"/>
+            <circle class="fill" cx="40" cy="40" r="34" stroke-dasharray="${2 * Math.PI * 34}" stroke-dashoffset="${2 * Math.PI * 34 * (1 - (d.rsi || 50) / 100)}" stroke="${(d.rsi || 50) > 70 ? '#ff1744' : (d.rsi || 50) < 30 ? '#00c853' : '#ffc107'}"/>
+          </svg>
+          <div class="gauge-value">${d.rsi ? d.rsi.toFixed(1) : 'N/A'}</div>
+        </div>
+        <div style="font-size:0.75rem;color:${(d.rsi || 50) > 70 ? 'var(--red)' : (d.rsi || 50) < 30 ? 'var(--green)' : 'var(--yellow)'};margin-top:4px;">${(d.rsi || 50) > 70 ? 'Overbought' : (d.rsi || 50) < 30 ? 'Oversold' : 'Netral'}</div>
+      </div>
+      <div class="gauge-card">
+        <div class="label">Volume Ratio</div>
+        <div class="gauge-circle">
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle class="bg" cx="40" cy="40" r="34"/>
+            <circle class="fill" cx="40" cy="40" r="34" stroke-dasharray="${2 * Math.PI * 34}" stroke-dashoffset="${2 * Math.PI * 34 * (1 - Math.min(d.volRatio, 2) / 2)}" stroke="${d.volRatio > 0.8 ? '#00c853' : '#ff1744'}"/>
+          </svg>
+          <div class="gauge-value">${d.volRatio.toFixed(2)}</div>
+        </div>
+        <div style="font-size:0.75rem;color:${d.volRatio > 0.8 ? 'var(--green)' : 'var(--red)'};margin-top:4px;">${d.volRatio > 1.2 ? 'Tinggi' : d.volRatio > 0.8 ? 'Normal' : 'Rendah'}</div>
+      </div>
+      <div class="gauge-card">
+        <div class="label">MACD Histogram</div>
+        <div class="gauge-circle">
+          <svg width="80" height="80" viewBox="0 0 80 80">
+            <circle class="bg" cx="40" cy="40" r="34"/>
+            <circle class="fill" cx="40" cy="40" r="34" stroke-dasharray="${2 * Math.PI * 34}" stroke-dashoffset="${2 * Math.PI * 34 * (1 - Math.max(-6, Math.min(6, d.macdSignal || 0) + 6) / 12)}" stroke="${(d.macdSignal || 0) > 0 ? '#00c853' : '#ff1744'}"/>
+          </svg>
+          <div class="gauge-value">${d.macdSignal !== null ? d.macdSignal.toFixed(4) : 'N/A'}</div>
+        </div>
+        <div style="font-size:0.75rem;color:${(d.macdSignal || 0) > 0 ? 'var(--green)' : 'var(--red)'};margin-top:4px;">${(d.macdSignal || 0) > 0 ? 'Bullish' : 'Bearish'}</div>
+      </div>
+    </div>
+
+    <div class="bar-container">
+      <h3>Indikator Kelayakan (6-Check)</h3>
+      <div class="bar-item">
+        <span class="bar-label">RSI Sehat</span>
+        <div class="bar-track"><div class="bar-fill ${d.rsi && d.rsi >= 40 && d.rsi <= 65 ? 'green' : (d.rsi && d.rsi >= 30 && d.rsi <= 70 ? 'yellow' : 'red')}" style="width:${d.rsi ? Math.max(100 - Math.abs(d.rsi - 50) * 2.5, 5) : 50}%"></div></div>
+        <span class="bar-percent">${d.rsi ? Math.round(Math.max(100 - Math.abs(d.rsi - 50) * 2.5, 5)) : 50}%</span>
+      </div>
+      <div class="bar-item">
+        <span class="bar-label">Volume</span>
+        <div class="bar-track"><div class="bar-fill ${d.volRatio > 0.8 ? 'green' : 'yellow'}" style="width:${Math.min(d.volRatio * 50, 100)}%"></div></div>
+        <span class="bar-percent">${Math.round(Math.min(d.volRatio * 50, 100))}%</span>
+      </div>
+      <div class="bar-item">
+        <span class="bar-label">MACD</span>
+        <div class="bar-track"><div class="bar-fill ${(d.macdSignal || 0) > 0 ? 'green' : 'red'}" style="width:${Math.min(50 + (d.macdSignal || 0) * 6, 100)}%"></div></div>
+        <span class="bar-percent">${Math.round(Math.min(50 + (d.macdSignal || 0) * 6, 100))}%</span>
+      </div>
+      <div class="bar-item">
+        <span class="bar-label">EMA Cross</span>
+        <div class="bar-track"><div class="bar-fill ${d.emaCross === 'golden_cross' ? 'green' : (d.emaCross === 'death_cross' ? 'red' : 'yellow')}" style="width:${d.emaCross === 'golden_cross' ? 85 : (d.emaCross === 'death_cross' ? 20 : 50)}%"></div></div>
+        <span class="bar-percent">${d.emaCross === 'golden_cross' ? 85 : (d.emaCross === 'death_cross' ? 20 : 50)}%</span>
+      </div>
+      <div class="bar-item">
+        <span class="bar-label">Harga vs EMA20</span>
+        <div class="bar-track"><div class="bar-fill ${d.priceAboveEma20 ? 'green' : 'red'}" style="width:${d.priceAboveEma20 ? 80 : 25}%"></div></div>
+        <span class="bar-percent">${d.priceAboveEma20 ? 80 : 25}%</span>
+      </div>
+      <div class="bar-item">
+        <span class="bar-label">Vs ATH</span>
+        <div class="bar-track"><div class="bar-fill ${d.priceVsAth < 0.5 ? 'green' : (d.priceVsAth < 0.8 ? 'yellow' : 'red')}" style="width:${Math.round((1 - d.priceVsAth) * 100)}%"></div></div>
+        <span class="bar-percent">${Math.round((1 - d.priceVsAth) * 100)}%</span>
+      </div>
+      <div class="bar-item">
+        <span class="bar-label">Skor Total</span>
+        <div class="bar-track"><div class="bar-fill purple" style="width:${d.score}%"></div></div>
+        <span class="bar-percent">${d.score}%</span>
+      </div>
+    </div>
+
+    <div class="gauge-row" style="grid-template-columns:1fr 1fr;">
+      <div class="risk-box">
+        <h3 style="color:var(--green);">Kekuatan / Strengths</h3>
+        <ul>
+          ${d.strengths.map(s => `
+            <li>
+              <span class="icon-circle" style="background:${s.color === 'green' ? 'var(--green)' : 'var(--blue)'}"></span>
+              ${s.text}
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+      <div class="risk-box">
+        <h3 style="color:var(--red);">Risiko / Risks</h3>
+        <ul>
+          ${d.risks.map(r => `
+            <li>
+              <span class="icon-circle" style="background:${r.color === 'red' ? 'var(--red)' : 'var(--yellow)'}"></span>
+              ${r.text}
+            </li>
+          `).join('')}
+        </ul>
+      </div>
+    </div>
+  `;
+
+      setTimeout(() => {
+        document.querySelectorAll('.gauge-circle .fill').forEach(el => {
+          el.style.strokeDashoffset = el.getAttribute('stroke-dashoffset');
+        });
+      }, 100);
+    }
+
+    document.getElementById('tokenInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') analyze();
+    });
+  </script>
+</body>
+
+</html>
