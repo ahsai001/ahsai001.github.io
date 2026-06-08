@@ -99,6 +99,37 @@
       color: #555;
     }
 
+    .select-tf {
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.95rem;
+      font-weight: 600;
+      outline: none;
+      cursor: pointer;
+      min-width: 70px;
+      text-align: center;
+      transition: border-color 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23777' d='M2 4l4 4 4-4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 30px;
+    }
+
+    .select-tf:focus {
+      border-color: var(--accent);
+    }
+
+    .select-tf option {
+      background: var(--card);
+      color: var(--text);
+    }
+
     .btn {
       padding: 14px 28px;
       border: none;
@@ -126,6 +157,62 @@
       cursor: not-allowed;
       transform: none;
       box-shadow: none;
+    }
+
+    .btn-share {
+      padding: 10px 20px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn-share:hover {
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    .btn-share.copied {
+      border-color: var(--green);
+      color: var(--green);
+    }
+
+    .btn-screenshot {
+      border-color: rgba(255, 145, 0, 0.3);
+      color: var(--orange);
+    }
+
+    .btn-screenshot:hover {
+      border-color: var(--orange);
+      background: rgba(255, 145, 0, 0.08);
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+
+    .toast.show {
+      opacity: 1;
     }
 
     .loading {
@@ -500,12 +587,19 @@
   <div class="container">
     <div class="header">
       <h1>Token Analyzer</h1>
-      <p>Analisa kelayakan token / crypto untuk buy — data real-time exchange</p>
+      <p>Analisa kelayakan token / crypto untuk buy — multi timeframe (1H / 4H / 1D / 1W / 1M)</p>
     </div>
 
     <div class="search-card">
       <input type="text" id="tokenInput"
         placeholder="Masukkan nama token, contoh: bitcoin, ethereum, solana, dogecoin..." autocomplete="off">
+      <select id="timeframe" class="select-tf">
+        <option value="1h">1H</option>
+        <option value="4h">4H</option>
+        <option value="1d" selected>1D</option>
+        <option value="1w">1W</option>
+        <option value="1M">1M</option>
+      </select>
       <button class="btn btn-primary" id="analyzeBtn" onclick="analyze()">Analisa</button>
     </div>
 
@@ -515,13 +609,15 @@
     </div>
 
     <div id="errorBox" style="display:none;"></div>
+    <div class="toast" id="toast">Link disalin!</div>
     <div class="result" id="result"></div>
 
-    <p class="note">* Data harga & history dari <a href="https://www.bybit.com" target="_blank">Bybit</a> / <a href="https://www.mexc.com" target="_blank">MEXC</a> API + cache 5 menit. Market cap & ATH tidak tersedia via exchange. Bukan rekomendasi finansial — selalu DYOR.</p>
+    <p class="note">* 1D: <a href="https://www.coingecko.com" target="_blank">CoinGecko API</a> (cache 2 menit). 1H/4H/1W/1M: exchange (Bybit/MEXC/Binance). Bukan rekomendasi finansial — selalu DYOR.</p>
   </div>
 
   <script>
-    const CACHE_TTL = 5 * 60 * 1000;
+    const CACHE_TTL = 2 * 60 * 1000;
+    const CG_BASE = 'https://api.coingecko.com/api/v3';
 
     function cacheGet(key) {
       try {
@@ -539,8 +635,21 @@
       } catch (e) { /* quota exceeded, ignore */ }
     }
 
-    function cacheKey(...parts) {
-      return parts.map(p => String(p).toLowerCase().replace(/[^a-z0-9]/g, '_')).join('__');
+    async function apiFetch(url) {
+      const resp = await fetch(url);
+      if (resp.status === 429) throw new Error('Rate limit CoinGecko tercapai. Tunggu 1 menit lalu coba lagi.');
+      if (!resp.ok) throw new Error(`CoinGecko API error: ${resp.status}`);
+      return resp.json();
+    }
+
+    async function searchCoin(query) {
+      const data = await apiFetch(`${CG_BASE}/search?query=${encodeURIComponent(query)}`);
+      if (!data.coins || data.coins.length === 0) return null;
+      const q = query.toLowerCase();
+      const exact = data.coins.find(c =>
+        c.symbol.toLowerCase() === q || c.name.toLowerCase() === q || c.id.toLowerCase() === q
+      );
+      return exact || data.coins[0];
     }
 
     const NAME_TO_SYMBOL = {
@@ -602,13 +711,52 @@
       return base.charAt(0) + base.slice(1).toLowerCase();
     }
 
+    const CORS_PROXIES = [
+      'https://api.codetabs.com/v1/proxy?quest=',
+      'https://api.allorigins.win/raw?url=',
+      'https://corsproxy.io/?'
+    ];
+
+    async function safefetch(url) {
+      const errors = [];
+      // try direct first
+      try {
+        const res = await fetch(url);
+        if (res.ok) return res;
+        errors.push(`direct: HTTP ${res.status}`);
+      } catch (e) {
+        errors.push(`direct: ${e.message}`);
+      }
+      // try proxies
+      for (const proxy of CORS_PROXIES) {
+        try {
+          const proxyUrl = proxy + encodeURIComponent(url);
+          const res = await fetch(proxyUrl);
+          if (res.ok) return res;
+          errors.push(`${proxy.split('/')[2]}: HTTP ${res.status}`);
+        } catch (e) {
+          errors.push(`${proxy.split('/')[2]}: ${e.message}`);
+        }
+      }
+      throw new Error(errors.join(' | '));
+    }
+
+    const TF_INTERVAL = {
+      '1h': { bybit: '60', mexc: '1h', binance: '1h' },
+      '4h': { bybit: '240', mexc: '4h', binance: '4h' },
+      '1d': { bybit: 'D', mexc: '1d', binance: '1d' },
+      '1w': { bybit: 'W', mexc: '1w', binance: '1w' },
+      '1M': { bybit: 'M', mexc: '1M', binance: '1M' },
+    };
+
     const EXCHANGES = [
       {
         name: 'Bybit', baseUrl: 'https://www.bybit.com/en/trade/spot/',
-        async fetch(symbol) {
+        async fetch(symbol, tf) {
+          const interval = TF_INTERVAL[tf].bybit;
           const [kl, tk] = await Promise.all([
-            fetch(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=D&limit=90`).then(r => r.json()),
-            fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${symbol}`).then(r => r.json())
+            safefetch(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=${interval}&limit=90`).then(r => r.json()),
+            safefetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${symbol}`).then(r => r.json())
           ]);
           if (kl.retCode !== 0 || !kl.result || !kl.result.list || !kl.result.list.length) throw new Error('Bybit: no kline data');
           if (tk.retCode !== 0 || !tk.result || !tk.result.list || !tk.result.list.length) throw new Error('Bybit: no ticker data');
@@ -626,13 +774,35 @@
       },
       {
         name: 'MEXC', baseUrl: 'https://www.mexc.com/exchange/',
-        async fetch(symbol) {
+        async fetch(symbol, tf) {
+          const interval = TF_INTERVAL[tf].mexc;
           const [kl, tk] = await Promise.all([
-            fetch(`https://api.mexc.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=90`).then(r => r.json()),
-            fetch(`https://api.mexc.com/api/v3/ticker/24hr?symbol=${symbol}`).then(r => r.json())
+            safefetch(`https://api.mexc.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=90`).then(r => r.json()),
+            safefetch(`https://api.mexc.com/api/v3/ticker/24hr?symbol=${symbol}`).then(r => r.json())
           ]);
           if (!Array.isArray(kl) || !kl.length) throw new Error('MEXC: no kline data');
           if (!tk || tk.lastPrice == null) throw new Error('MEXC: no ticker data');
+          const klines = kl.reverse();
+          return {
+            prices: klines.map(k => [k[0] * 1000, parseFloat(k[4])]),
+            volumes: klines.map(k => [k[0] * 1000, parseFloat(k[7])]),
+            price: parseFloat(tk.lastPrice),
+            change24h: parseFloat(tk.priceChangePercent),
+            volume24h: parseFloat(tk.quoteVolume),
+            sourceUrl: `${this.baseUrl}${symbol}`,
+          };
+        }
+      },
+      {
+        name: 'Binance', baseUrl: 'https://www.binance.com/en/trade/',
+        async fetch(symbol, tf) {
+          const interval = TF_INTERVAL[tf].binance;
+          const [kl, tk] = await Promise.all([
+            safefetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=90`).then(r => r.json()),
+            safefetch(`https://api.binance.com/api/v3/ticker/24hr?symbol=${symbol}`).then(r => r.json())
+          ]);
+          if (!Array.isArray(kl) || !kl.length) throw new Error('Binance: no kline data');
+          if (!tk || tk.lastPrice == null) throw new Error('Binance: no ticker data');
           return {
             prices: kl.map(k => [k[0], parseFloat(k[4])]),
             volumes: kl.map(k => [k[0], parseFloat(k[7])]),
@@ -645,13 +815,17 @@
       },
     ];
 
-    async function fetchExchangeData(symbol) {
+    async function fetchExchangeData(symbol, tf) {
+      const errors = [];
       for (const ex of EXCHANGES) {
         try {
-          return { ...(await ex.fetch(symbol)), source: ex.name };
-        } catch (e) { continue; }
+          return { ...(await ex.fetch(symbol, tf)), source: ex.name };
+        } catch (e) {
+          errors.push(`${ex.name}: ${e.message}`);
+          continue;
+        }
       }
-      return null;
+      throw new Error('Gagal fetch data exchange:\n' + errors.join('\n'));
     }
 
     function calcEMA(prices, period) {
@@ -719,7 +893,7 @@
       };
     }
 
-    function processAndRender(coin, coinData, marketChart, apiSource, apiSourceUrl) {
+    function processAndRender(coin, coinData, marketChart, apiSource, apiSourceUrl, tf) {
       const loadingText = document.getElementById('loadingText');
       const loading = document.getElementById('loading');
       const btn = document.getElementById('analyzeBtn');
@@ -761,16 +935,26 @@
         const volRatio = avgVol30 > 0 ? totalVolumes[totalVolumes.length - 1] / avgVol30 : 1;
 
         const emaGapPct = ema20 && ema50 ? ((ema20 - ema50) / ema50) * 100 : 0;
-        let emaCross;
-        if (emaGapPct > 1.5) emaCross = 'golden_cross';
-        else if (emaGapPct < -1.5) emaCross = 'death_cross';
-        else emaCross = 'neutral';
+
+        const ema20Arr = calcAllEMA(prices, 20);
+        const ema50Arr = calcAllEMA(prices, 50);
+        let emaCross = 'neutral';
+        for (let i = prices.length - 1; i >= 1; i--) {
+          if (ema20Arr[i] === null || ema50Arr[i] === null) continue;
+          const prev20 = ema20Arr[i - 1], prev50 = ema50Arr[i - 1];
+          const curr20 = ema20Arr[i], curr50 = ema50Arr[i];
+          if (prev20 === null || prev50 === null) continue;
+          if (prev20 <= prev50 && curr20 > curr50) { emaCross = 'golden_cross'; break; }
+          if (prev20 >= prev50 && curr20 < curr50) { emaCross = 'death_cross'; break; }
+          if (curr20 > curr50) { emaCross = 'bullish'; break; }
+          if (curr20 < curr50) { emaCross = 'bearish'; break; }
+        }
 
         const macdHistogram = macd.histogram;
 
         const priceAboveEma20 = ema20 !== null && price > ema20;
         const priceAboveEma50 = ema50 !== null && price > ema50;
-        const ema20AboveEma50 = emaCross === 'golden_cross' || (emaGapPct > 0);
+        const ema20AboveEma50 = emaCross === 'golden_cross' || emaCross === 'bullish';
         const rsiHealthy = rsi !== null && rsi >= 30 && rsi <= 70;
         const macdBullish = macdHistogram !== null && macdHistogram > 0;
         const notNearAth = hasAth ? (priceVsAth < 0.85) : null;
@@ -783,14 +967,16 @@
           return '$' + n.toFixed(6);
         };
 
+        const tfLabel = { '1h': '30 jam', '4h': '30 candle', '1d': '30 hari', '1w': '30 minggu', '1M': '30 bulan' }[tf] || '30 candle';
+
         const athCheck = hasAth
           ? { key: 'ath', label: 'Jauh dari ATH (<85%)', desc: 'Masih ada ruang upside signifikan', met: notNearAth, detail: `${((1-priceVsAth)*100).toFixed(0)}% di bawah ATH (${fmtPrice(athPrice)})`, icon: '🚀' }
           : { key: 'ath', label: 'Jauh dari ATH (<85%)', desc: 'Data ATH tidak tersedia', met: true, detail: `ATH true tidak diketahui; 90d high: ${fmtPrice(periodHigh)}`, icon: '⚠️', na: true };
 
         const checks = [
-          { key: 'ema',   label: 'EMA 20 > EMA 50',        desc: 'Golden Cross — tren naik',                                             met: ema20AboveEma50, detail: `EMA20: ${fmtPrice(ema20)} | EMA50: ${fmtPrice(ema50)} | Gap: ${emaGapPct>0?'+':''}${emaGapPct.toFixed(2)}%`, icon: '📈' },
+          { key: 'ema',   label: 'EMA 20 > EMA 50',        desc: 'Alignment bullish — EMA pendek di atas EMA menengah',               met: ema20AboveEma50, detail: `EMA20: ${fmtPrice(ema20)} | EMA50: ${fmtPrice(ema50)} | Gap: ${emaGapPct>0?'+':''}${emaGapPct.toFixed(2)}%`, icon: '📈' },
           { key: 'price', label: 'Harga > EMA 20',           desc: 'Harga di atas support dinamis',                                      met: priceAboveEma20, detail: `Harga: ${fmtPrice(price)} ${priceAboveEma20?'>':'<'} EMA20: ${fmtPrice(ema20)}`, icon: '💰' },
-          { key: 'vol',   label: 'Volume Mendukung',         desc: 'Volume > rata-rata 30 hari (minat pasar)',                          met: volumeSolid,     detail: `Vol Ratio: ${volRatio.toFixed(2)} (threshold > 0.8)`, icon: '📊' },
+          { key: 'vol',   label: 'Volume Mendukung',         desc: `Volume > rata-rata ${tfLabel} (minat pasar)`,                        met: volumeSolid,     detail: `Vol Ratio: ${volRatio.toFixed(2)} (threshold > 0.8)`, icon: '📊' },
           { key: 'rsi',   label: 'RSI Sehat (30–70)',        desc: 'Tidak overbought / oversold ekstrem',                                met: rsiHealthy,      detail: `RSI: ${rsi ? rsi.toFixed(1) : 'N/A'} ${rsiHealthy ? '✅ Netral' : (rsi>70 ? '⚠️ Overbought' : '⚠️ Oversold')}`, icon: '📉' },
           { key: 'macd',  label: 'MACD Bullish',             desc: 'Histogram positif — momentum naik',                                  met: macdBullish,     detail: `Histogram: ${macdHistogram ? macdHistogram.toFixed(4) : 'N/A'} ${macdBullish ? '▲ Naik' : '▼ Turun'}`, icon: '📐' },
           athCheck,
@@ -837,8 +1023,8 @@
           checks, checksMet, totalChecks, checksFailed,
           score, verdict, verdictClass,
           strengths, risks,
-          prices, ema20Arr: calcAllEMA(prices, 20), ema50Arr: calcAllEMA(prices, 50),
-          apiSource, apiSourceUrl,
+          prices, ema20Arr, ema50Arr,
+          rawPrices: marketChart.prices, apiSource, apiSourceUrl, tf,
         };
 
         loading.classList.remove('active');
@@ -863,64 +1049,109 @@
       const loadingText = document.getElementById('loadingText');
       const result = document.getElementById('result');
       const errorBox = document.getElementById('errorBox');
+      const tf = document.getElementById('timeframe').value;
 
       btn.disabled = true;
       if (result) { result.classList.remove('active'); result.innerHTML = ''; }
       if (errorBox) { errorBox.style.display = 'none'; }
       if (loading) loading.classList.add('active');
 
-      try {
-        loadingText.textContent = 'Mencari token...';
-        const exSymbol = resolveSymbol(input, null);
-        const coin = {
-          id: exSymbol.toLowerCase(),
-          symbol: exSymbol.replace('USDT', '').toLowerCase(),
-          name: resolveName(input, null, exSymbol)
-        };
+      const cgCacheKey = 'cg_' + input.toLowerCase().replace(/[^a-z0-9]/g, '_').trim();
 
-        loadingText.textContent = `Mengambil data ${coin.name.toUpperCase()}...`;
-
-        const cached = cacheGet(cacheKey('exData', exSymbol));
-        let exData = cached;
-        if (!exData) {
-          exData = await fetchExchangeData(exSymbol);
-          if (exData) cacheSet(cacheKey('exData', exSymbol), { prices: exData.prices, volumes: exData.volumes, price: exData.price, change24h: exData.change24h, volume24h: exData.volume24h, source: exData.source, sourceUrl: exData.sourceUrl });
-        }
-
-        if (!exData) throw new Error(`Token "${input}" tidak ditemukan di exchange. Coba nama/simbol lain.`);
-
-        const marketChart = { prices: exData.prices, total_volumes: exData.volumes };
-        const coinData = {
-          market_data: {
-            current_price: { usd: exData.price },
-            price_change_percentage_24h: exData.change24h,
-            market_cap: null,
-            total_volume: { usd: exData.volume24h || 0 },
-            ath: null,
-            atl: null,
+      if (tf === '1d') {
+        try {
+          const cached = cacheGet(cgCacheKey);
+          if (cached) {
+            loadingText.textContent = `Data dari cache (${cached.coin.name.toUpperCase()})...`;
+            processAndRender(cached.coin, cached.coinData, cached.marketChart, 'CoinGecko', `https://www.coingecko.com/en/coins/${cached.coin.id}`, tf);
+            return;
           }
-        };
 
-        processAndRender(coin, coinData, marketChart, exData.source, exData.sourceUrl);
-      } catch (err) {
-        loading.classList.remove('active');
-        btn.disabled = false;
-        errorBox.style.display = 'block';
-        errorBox.innerHTML = `<div class="error-msg">${err.message}</div>`;
-        console.error(err);
+          loadingText.textContent = 'Mencari token di CoinGecko...';
+          const coin = await searchCoin(input);
+          if (!coin) throw new Error(`Token "${input}" tidak ditemukan di CoinGecko.`);
+
+          loadingText.textContent = `Mengambil data ${coin.name} (${coin.symbol.toUpperCase()})...`;
+          const [coinData, marketChart] = await Promise.all([
+            apiFetch(`${CG_BASE}/coins/${coin.id}?localization=false&tickers=false&community_data=false&developer_data=false`),
+            apiFetch(`${CG_BASE}/coins/${coin.id}/market_chart?vs_currency=usd&days=90`)
+          ]);
+
+          cacheSet(cgCacheKey, { coin, coinData, marketChart });
+          processAndRender(coin, coinData, marketChart, 'CoinGecko', `https://www.coingecko.com/en/coins/${coin.id}`, tf);
+        } catch (cgErr) {
+          loadingText.textContent = 'CoinGecko gagal, coba exchange...';
+          try {
+            const exSymbol = resolveSymbol(input, null);
+            const exData = await fetchExchangeData(exSymbol, tf);
+            const coin = {
+              id: exSymbol.toLowerCase(),
+              symbol: exSymbol.replace('USDT', '').toLowerCase(),
+              name: resolveName(input, null, exSymbol)
+            };
+            const marketChart = { prices: exData.prices, total_volumes: exData.volumes };
+            const coinData = {
+              market_data: {
+                current_price: { usd: exData.price },
+                price_change_percentage_24h: exData.change24h,
+                market_cap: null,
+                total_volume: { usd: exData.volume24h || 0 },
+                ath: null,
+                atl: null,
+              }
+            };
+            processAndRender(coin, coinData, marketChart, exData.source, exData.sourceUrl, tf);
+          } catch (exErr) {
+            loading.classList.remove('active');
+            btn.disabled = false;
+            errorBox.style.display = 'block';
+            errorBox.innerHTML = `<div class="error-msg">CoinGecko: ${cgErr.message}<br><br>Exchange fallback: ${exErr.message}</div>`;
+            console.error(cgErr, exErr);
+          }
+        }
+      } else {
+        try {
+          loadingText.textContent = `Mencari token (${tf})...`;
+          const exSymbol = resolveSymbol(input, null);
+          const exData = await fetchExchangeData(exSymbol, tf);
+          const coin = {
+            id: exSymbol.toLowerCase(),
+            symbol: exSymbol.replace('USDT', '').toLowerCase(),
+            name: resolveName(input, null, exSymbol)
+          };
+          const marketChart = { prices: exData.prices, total_volumes: exData.volumes };
+          const coinData = {
+            market_data: {
+              current_price: { usd: exData.price },
+              price_change_percentage_24h: exData.change24h,
+              market_cap: null,
+              total_volume: { usd: exData.volume24h || 0 },
+              ath: null,
+              atl: null,
+            }
+          };
+          processAndRender(coin, coinData, marketChart, exData.source, exData.sourceUrl, tf);
+        } catch (exErr) {
+          loading.classList.remove('active');
+          btn.disabled = false;
+          errorBox.style.display = 'block';
+          errorBox.innerHTML = `<div class="error-msg">${exErr.message}</div>`;
+          console.error(exErr);
+        }
       }
     }
 
     function renderChart(d) {
-      const w = 780, h = 240, pad = { top: 15, right: 20, bottom: 25, left: 60 };
+      const w = 780, h = 260, pad = { top: 15, right: 20, bottom: 40, left: 60 };
       const pw = w - pad.left - pad.right;
       const ph = h - pad.top - pad.bottom;
 
-      const validPrices = d.prices.filter((_, i) => d.prices.length - i <= 90);
-      const n = validPrices.length;
+      const rawPrices = d.rawPrices || d.prices.map((v, i) => [Date.now() - (d.prices.length - i) * 86400000, v]);
+      const validRaw = rawPrices.filter((_, i) => rawPrices.length - i <= 90);
+      const n = validRaw.length;
       if (n < 2) return '';
 
-      const allVals = [...validPrices];
+      const allVals = [...validRaw.map(p => p[1])];
       d.ema20Arr.slice(-n).forEach(v => { if (v !== null) allVals.push(v); });
       d.ema50Arr.slice(-n).forEach(v => { if (v !== null) allVals.push(v); });
       const minVal = Math.min(...allVals);
@@ -932,7 +1163,7 @@
 
       let pathPrice = '';
       for (let i = 0; i < n; i++) {
-        pathPrice += `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(validPrices[i]).toFixed(1)} `;
+        pathPrice += `${i === 0 ? 'M' : 'L'} ${x(i).toFixed(1)} ${y(validRaw[i][1]).toFixed(1)} `;
       }
 
       let pathEma20 = '';
@@ -961,11 +1192,29 @@
         yLabels.push(val);
       }
 
+      const xLabels = [];
+      const step = Math.max(Math.floor(n / 5), 1);
+      for (let i = 0; i < n; i += step) {
+        const ts = validRaw[i][0];
+        const dt = new Date(ts);
+        const label = dt.toLocaleDateString('id', { day: 'numeric', month: 'short' });
+        xLabels.push({ i, label });
+      }
+      if (!xLabels.some(l => l.i === n - 1)) {
+        const ts = validRaw[n - 1][0];
+        const dt = new Date(ts);
+        const label = dt.toLocaleDateString('id', { day: 'numeric', month: 'short' });
+        xLabels.push({ i: n - 1, label });
+      }
+
       return `
     <svg viewBox="0 0 ${w} ${h}" style="width:100%;height:auto;">
       ${yLabels.map(v =>
         `<line x1="${pad.left}" y1="${y(v).toFixed(1)}" x2="${w - pad.right}" y2="${y(v).toFixed(1)}" stroke="rgba(255,255,255,0.04)" stroke-dasharray="4,4"/>
          <text x="${pad.left - 6}" y="${y(v).toFixed(1)}" fill="#555" font-size="10" text-anchor="end" dominant-baseline="middle">${v < 0.01 ? v.toFixed(6) : v < 1 ? v.toFixed(4) : v < 100 ? v.toFixed(2) : (v / 1000).toFixed(1) + 'K'}</text>`
+      ).join('')}
+      ${xLabels.map(l =>
+        `<text x="${x(l.i).toFixed(1)}" y="${h - 8}" fill="#555" font-size="10" text-anchor="middle">${l.label}</text>`
       ).join('')}
       ${pathEma50 ? `<path d="${pathEma50}" fill="none" stroke="var(--accent)" stroke-width="1.5" opacity="0.8"/>` : ''}
       ${pathEma20 ? `<path d="${pathEma20}" fill="none" stroke="var(--blue)" stroke-width="1.5" opacity="0.9"/>` : ''}
@@ -992,11 +1241,17 @@
 
       document.getElementById('result').innerHTML = `
     <div class="verdict-card">
+      <div style="font-size:1.4rem;font-weight:700;margin-bottom:2px;">${d.name} (${d.symbol})</div>
+      <div style="color:var(--muted);font-size:0.8rem;margin-bottom:14px;">${d.tf.toUpperCase()} · ${d.apiSource}</div>
       <div class="verdict-label">Rekomendasi</div>
-      <div class="verdict-badge ${d.verdictClass}">${d.verdict}</div>
-      <div class="score ${d.checksMet>=d.totalChecks-1?'green':(d.checksMet>=d.totalChecks-2?'yellow':'red')}">${d.score}/100</div>
+      <div class="verdict-badge ${d.verdictClass}" title="${d.verdict === 'STRONG BUY' ? 'Semua indikator aligned' : d.verdict === 'LAYAK BUY' ? 'Mayoritas indikator mendukung' : d.verdict === 'TUNGGU / WAIT' ? 'Beberapa indikator belum terpenuhi' : 'Sebagian besar indikator menolak'}">${d.verdict}</div>
+      <div class="score ${d.checksMet>=d.totalChecks-1?'green':(d.checksMet>=d.totalChecks-2?'yellow':'red')}" title="Skor kelayakan: ${d.score}/100 — ${d.checksMet}/${d.totalChecks} indikator terpenuhi">${d.score}/100</div>
       <div style="color:var(--muted);font-size:0.85rem;">${d.checksMet}/${d.totalChecks} indikator terpenuhi — Skor: ${d.score}/100</div>
-      <div class="data-source">Data: <a href="${d.apiSourceUrl}" target="_blank">${d.apiSource}</a></div>
+      <div class="data-source">Data: <a href="${d.apiSourceUrl}" target="_blank">${d.apiSource}</a> · ${d.tf.toUpperCase()}</div>
+      <div style="display:flex;gap:8px;justify-content:center;margin-top:10px;">
+        <button class="btn-share" onclick="shareResult(event)" title="Salin link hasil analisa">🔗 Share</button>
+        <button class="btn-share btn-screenshot" onclick="shareScreenshot(event)" title="Simpan sebagai gambar">📸 Screenshot</button>
+      </div>
     </div>
 
     <div class="verdict-card" style="padding:20px 24px;">
@@ -1014,7 +1269,7 @@
               <div style="font-weight:700;font-size:0.88rem;color:var(--text);">${i+1}. ${c.label}</div>
               <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.detail}</div>
             </div>
-            <span style="font-size:0.68rem;font-weight:700;padding:3px 10px;border-radius:20px;background:${c.na?'rgba(255,193,7,0.12)':(c.met?'rgba(0,200,83,0.12)':'rgba(255,23,68,0.12)')};color:${c.na?'var(--yellow)':(c.met?'var(--green)':'var(--red)')};white-space:nowrap;flex-shrink:0;">
+            <span title="${c.na ? 'Data tidak tersedia' : c.met ? c.label + ' — ' + c.desc : c.label + ' — GAGAL: ' + c.desc}" style="font-size:0.68rem;font-weight:700;padding:3px 10px;border-radius:20px;background:${c.na?'rgba(255,193,7,0.12)':(c.met?'rgba(0,200,83,0.12)':'rgba(255,23,68,0.12)')};color:${c.na?'var(--yellow)':(c.met?'var(--green)':'var(--red)')};white-space:nowrap;flex-shrink:0;">
               ${c.na ? 'N/A' : (c.met ? 'PASS' : 'FAIL')}
             </span>
           </div>
@@ -1070,7 +1325,7 @@
     </div>
 
     <div class="chart-card">
-      <h3>Chart Harga 90 Hari + EMA</h3>
+      <h3>Chart Harga 90 ${d.tf === '1h' ? 'Jam' : d.tf === '4h' ? 'Kandel (4H)' : d.tf === '1w' ? 'Minggu' : d.tf === '1M' ? 'Bulan' : 'Hari'} + EMA (${d.tf.toUpperCase()})</h3>
       <div class="chart-legend">
         <span><span class="chart-dot" style="background:var(--text);width:14px;"></span> Harga</span>
         <span><span class="chart-dot" style="background:var(--blue);"></span> EMA 20</span>
@@ -1079,37 +1334,11 @@
       ${renderChart(d)}
     </div>
 
-    <div class="verdict-card" style="padding:14px 20px;text-align:left;font-size:0.85rem;line-height:1.6;">
-      <details style="cursor:pointer;">
-        <summary style="color:var(--muted);font-weight:600;font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;">Apa itu Golden Cross & Death Cross?</summary>
-        <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px;">
-          <div style="background:rgba(0,200,83,0.06);border-left:3px solid var(--green);padding:10px 14px;border-radius:0 8px 8px 0;">
-            <strong style="color:var(--green);">GOLDEN CROSS</strong>
-            <span style="color:var(--muted);display:block;margin-top:4px;">
-              Terjadi saat <b>EMA 20 (jangka pendek) memotong ke ATAS EMA 50 (jangka menengah)</b>. 
-              Sinyal <span style="color:var(--green);">bullish</span> — menandakan momentum naik mulai terbentuk, 
-              sering dianggap sebagai awal tren naik.<br>
-              <i>Analog: "emas" = peluang emas untuk entry buy.</i>
-            </span>
-          </div>
-          <div style="background:rgba(255,23,68,0.06);border-left:3px solid var(--red);padding:10px 14px;border-radius:0 8px 8px 0;">
-            <strong style="color:var(--red);">DEATH CROSS</strong>
-            <span style="color:var(--muted);display:block;margin-top:4px;">
-              Terjadi saat <b>EMA 20 memotong ke BAWAH EMA 50</b>.
-              Sinyal <span style="color:var(--red);">bearish</span> — menandakan momentum turun mulai mendominasi,
-              sering dianggap sebagai awal tren turun.<br>
-              <i>Analog: "death" = saatnya exit / jangan entry buy.</i>
-            </span>
-          </div>
-        </div>
-      </details>
-    </div>
-
     <div class="gauge-row">
       <div class="gauge-card">
         <div class="label">EMA 20</div>
         <div style="font-size:1.3rem;font-weight:700;color:var(--blue);padding:12px 0;">${fmtPrice(d.ema20)}</div>
-        <div style="font-size:0.75rem;color:var(--muted);">${d.emaCross === 'golden_cross' ? '<span style="color:var(--green);">▲ Di atas EMA50</span>' : (d.emaCross === 'death_cross' ? '<span style="color:var(--red);">▼ Di bawah EMA50</span>' : '≈ Sejajar EMA50')}</div>
+        <div style="font-size:0.75rem;color:var(--muted);">${d.emaCross === 'golden_cross' ? '<span style="color:var(--green);">▲ Golden Cross</span>' : d.emaCross === 'death_cross' ? '<span style="color:var(--red);">▼ Death Cross</span>' : d.emaCross === 'bullish' ? '<span style="color:var(--green);">▲ Bullish</span>' : d.emaCross === 'bearish' ? '<span style="color:var(--red);">▼ Bearish</span>' : '≈ Sejajar EMA50'}</div>
       </div>
       <div class="gauge-card">
         <div class="label">EMA 50</div>
@@ -1120,13 +1349,23 @@
         <div class="label">EMA CROSS</div>
         <div style="padding:8px 0;">
           ${d.emaCross === 'golden_cross'
-          ? '<span style="display:inline-block;padding:10px 20px;border-radius:8px;background:rgba(0,200,83,0.12);color:var(--green);font-weight:700;font-size:1rem;">SINYAL BELI</span>'
+          ? '<span style="display:inline-block;padding:10px 20px;border-radius:8px;background:rgba(0,200,83,0.12);color:var(--green);font-weight:700;font-size:1rem;">GOLDEN CROSS</span>'
           : d.emaCross === 'death_cross'
-            ? '<span style="display:inline-block;padding:10px 20px;border-radius:8px;background:rgba(255,23,68,0.12);color:var(--red);font-weight:700;font-size:1rem;">SINYAL JUAL</span>'
-            : '<span style="display:inline-block;padding:10px 20px;border-radius:8px;background:rgba(255,193,7,0.12);color:var(--yellow);font-weight:700;font-size:1rem;">NO SIGNAL</span>'
+            ? '<span style="display:inline-block;padding:10px 20px;border-radius:8px;background:rgba(255,23,68,0.12);color:var(--red);font-weight:700;font-size:1rem;">DEATH CROSS</span>'
+            : d.emaCross === 'bullish'
+              ? '<span style="display:inline-block;padding:10px 20px;border-radius:8px;background:rgba(0,200,83,0.08);color:var(--green);font-weight:700;font-size:0.9rem;">BULLISH</span>'
+              : d.emaCross === 'bearish'
+                ? '<span style="display:inline-block;padding:10px 20px;border-radius:8px;background:rgba(255,23,68,0.08);color:var(--red);font-weight:700;font-size:0.9rem;">BEARISH</span>'
+                : '<span style="display:inline-block;padding:10px 20px;border-radius:8px;background:rgba(255,193,7,0.12);color:var(--yellow);font-weight:700;font-size:1rem;">NO SIGNAL</span>'
         }
         </div>
-        <div style="font-size:0.75rem;color:var(--muted);">Konfirmasi crossover EMA</div>
+        <div style="font-size:0.7rem;color:var(--muted);margin-top:6px;line-height:1.4;">
+          ${d.emaCross === 'golden_cross' ? 'EMA 20 baru memotong ke ATAS EMA 50' :
+            d.emaCross === 'death_cross' ? 'EMA 20 baru memotong ke BAWAH EMA 50' :
+            d.emaCross === 'bullish' ? 'EMA 20 di atas EMA 50, bukan crossover baru' :
+            d.emaCross === 'bearish' ? 'EMA 20 di bawah EMA 50, bukan crossover baru' :
+            'EMA 20 dan 50 sejajar, tidak ada sinyal'}
+        </div>
       </div>
     </div>
 
@@ -1138,9 +1377,9 @@
             <circle class="bg" cx="40" cy="40" r="34"/>
             <circle class="fill" cx="40" cy="40" r="34" stroke-dasharray="${2 * Math.PI * 34}" stroke-dashoffset="${2 * Math.PI * 34 * (1 - (d.rsi || 50) / 100)}" stroke="${(d.rsi || 50) > 70 ? '#ff1744' : (d.rsi || 50) < 30 ? '#00c853' : '#ffc107'}"/>
           </svg>
-          <div class="gauge-value">${d.rsi ? d.rsi.toFixed(1) : 'N/A'}</div>
+          <div class="gauge-value" title="RSI = ${d.rsi ? d.rsi.toFixed(1) : 'N/A'}. Overbought > 70 | Oversold < 30 | Netral 30-70">${d.rsi ? d.rsi.toFixed(1) : 'N/A'}</div>
         </div>
-        <div style="font-size:0.75rem;color:${(d.rsi || 50) > 70 ? 'var(--red)' : (d.rsi || 50) < 30 ? 'var(--green)' : 'var(--yellow)'};margin-top:4px;">${(d.rsi || 50) > 70 ? 'Overbought' : (d.rsi || 50) < 30 ? 'Oversold' : 'Netral'}</div>
+        <div style="font-size:0.75rem;color:${(d.rsi || 50) > 70 ? 'var(--red)' : (d.rsi || 50) < 30 ? 'var(--green)' : 'var(--yellow)'};margin-top:4px;" title="${(d.rsi || 50) > 70 ? 'Jenuh beli — risiko koreksi' : (d.rsi || 50) < 30 ? 'Jenuh jual — potensi bounce' : 'Zona netral — entry lebih aman'}">${(d.rsi || 50) > 70 ? 'Overbought' : (d.rsi || 50) < 30 ? 'Oversold' : 'Netral'}</div>
       </div>
       <div class="gauge-card">
         <div class="label">Volume Ratio</div>
@@ -1149,9 +1388,9 @@
             <circle class="bg" cx="40" cy="40" r="34"/>
             <circle class="fill" cx="40" cy="40" r="34" stroke-dasharray="${2 * Math.PI * 34}" stroke-dashoffset="${2 * Math.PI * 34 * (1 - Math.min(d.volRatio, 2) / 2)}" stroke="${d.volRatio > 0.8 ? '#00c853' : '#ff1744'}"/>
           </svg>
-          <div class="gauge-value">${d.volRatio.toFixed(2)}</div>
+          <div class="gauge-value" title="Vol Ratio = ${d.volRatio.toFixed(2)}. Volume terbaru vs rata-rata 30 candle. Normal > 0.8">${d.volRatio.toFixed(2)}</div>
         </div>
-        <div style="font-size:0.75rem;color:${d.volRatio > 0.8 ? 'var(--green)' : 'var(--red)'};margin-top:4px;">${d.volRatio > 1.2 ? 'Tinggi' : d.volRatio > 0.8 ? 'Normal' : 'Rendah'}</div>
+        <div style="font-size:0.75rem;color:${d.volRatio > 0.8 ? 'var(--green)' : 'var(--red)'};margin-top:4px;" title="${d.volRatio > 1.2 ? 'Minat pasar sangat tinggi' : d.volRatio > 0.8 ? 'Minat pasar sehat' : 'Volume di bawah rata-rata — minat rendah'}">${d.volRatio > 1.2 ? 'Tinggi' : d.volRatio > 0.8 ? 'Normal' : 'Rendah'}</div>
       </div>
       <div class="gauge-card">
         <div class="label">MACD Histogram</div>
@@ -1160,9 +1399,9 @@
             <circle class="bg" cx="40" cy="40" r="34"/>
             <circle class="fill" cx="40" cy="40" r="34" stroke-dasharray="${2 * Math.PI * 34}" stroke-dashoffset="${2 * Math.PI * 34 * (1 - Math.max(-6, Math.min(6, d.macdSignal || 0) + 6) / 12)}" stroke="${(d.macdSignal || 0) > 0 ? '#00c853' : '#ff1744'}"/>
           </svg>
-          <div class="gauge-value">${d.macdSignal !== null ? d.macdSignal.toFixed(4) : 'N/A'}</div>
+          <div class="gauge-value" title="MACD Histogram = ${d.macdSignal !== null ? d.macdSignal.toFixed(4) : 'N/A'}. Positif = momentum naik | Negatif = momentum turun">${d.macdSignal !== null ? d.macdSignal.toFixed(4) : 'N/A'}</div>
         </div>
-        <div style="font-size:0.75rem;color:${(d.macdSignal || 0) > 0 ? 'var(--green)' : 'var(--red)'};margin-top:4px;">${(d.macdSignal || 0) > 0 ? 'Bullish' : 'Bearish'}</div>
+        <div style="font-size:0.75rem;color:${(d.macdSignal || 0) > 0 ? 'var(--green)' : 'var(--red)'};margin-top:4px;" title="${(d.macdSignal || 0) > 0 ? 'MACD di atas garis sinyal — momentum bullish' : 'MACD di bawah garis sinyal — momentum bearish'}">${(d.macdSignal || 0) > 0 ? 'Bullish' : 'Bearish'}</div>
       </div>
     </div>
 
@@ -1185,8 +1424,8 @@
       </div>
       <div class="bar-item">
         <span class="bar-label">EMA Cross</span>
-        <div class="bar-track"><div class="bar-fill ${d.emaCross === 'golden_cross' ? 'green' : (d.emaCross === 'death_cross' ? 'red' : 'yellow')}" style="width:${d.emaCross === 'golden_cross' ? 85 : (d.emaCross === 'death_cross' ? 20 : 50)}%"></div></div>
-        <span class="bar-percent">${d.emaCross === 'golden_cross' ? 85 : (d.emaCross === 'death_cross' ? 20 : 50)}%</span>
+        <div class="bar-track"><div class="bar-fill ${d.emaCross === 'golden_cross' ? 'green' : d.emaCross === 'death_cross' ? 'red' : d.emaCross === 'bullish' ? 'green' : d.emaCross === 'bearish' ? 'red' : 'yellow'}" style="width:${d.emaCross === 'golden_cross' ? 85 : d.emaCross === 'death_cross' ? 20 : d.emaCross === 'bullish' ? 70 : d.emaCross === 'bearish' ? 35 : 50}%"></div></div>
+        <span class="bar-percent">${d.emaCross === 'golden_cross' ? 85 : d.emaCross === 'death_cross' ? 20 : d.emaCross === 'bullish' ? 70 : d.emaCross === 'bearish' ? 35 : 50}%</span>
       </div>
       <div class="bar-item">
         <span class="bar-label">Harga vs EMA20</span>
@@ -1229,6 +1468,65 @@
         </ul>
       </div>
     </div>
+
+    <div class="verdict-card no-screenshot" style="padding:14px 20px;text-align:left;font-size:0.82rem;line-height:1.7;">
+      <details style="cursor:pointer;" open>
+        <summary style="color:var(--muted);font-weight:600;font-size:0.8rem;text-transform:uppercase;letter-spacing:1px;">Kriteria Analisa & Dasar Teori</summary>
+        <div style="margin-top:14px;display:flex;flex-direction:column;gap:14px;">
+
+          <div style="background:rgba(124,77,255,0.05);border-left:3px solid var(--accent);padding:10px 14px;border-radius:0 8px 8px 0;">
+            <strong style="color:var(--accent);">1. EMA 20 > EMA 50 (Alignment Bullish)</strong>
+            <span style="color:var(--muted);display:block;margin-top:4px;">
+              EMA 20 di atas EMA 50 = <b>alignment bullish</b>, tren jangka pendek mendukung jangka menengah.<br>
+              <b>Golden Cross</b>: terjadi saat EMA 20 <i>baru saja memotong ke atas</i> EMA 50 (gap &gt; 1.5%). Ini sinyal <span style="color:var(--green);">bullish</span> kuat dan memberi <b>bonus +4 skor</b>.<br>
+              <b>Death Cross</b>: EMA 20 baru saja memotong ke bawah EMA 50 (gap &lt; −1.5%) → sinyal <span style="color:var(--red);">bearish</span>.<br>
+              <i>Dasar: EMA crossover strategy. EMA memberi bobot lebih pada harga terbaru — lebih responsif dari SMA. Golden/Death Cross adalah sinyal teknikal klasik sejak 1960-an.</i>
+            </span>
+          </div>
+
+          <div style="background:rgba(68,138,255,0.05);border-left:3px solid var(--blue);padding:10px 14px;border-radius:0 8px 8px 0;">
+            <strong style="color:var(--blue);">2. Harga > EMA 20</strong>
+            <span style="color:var(--muted);display:block;margin-top:4px;">
+              Harga di atas EMA 20 berarti aset diperdagangkan di atas rata-rata 20 candle terakhir → <b>support dinamis</b> masih bertahan. Harga di bawah EMA 20 menandakan tekanan jual jangka pendek.<br>
+              <i>Dasar: EMA sebagai dynamic support/resistance level — prinsip dasar technical analysis. Trader menggunakan EMA sebagai trailing stop dan konfirmasi arah tren.</i>
+            </span>
+          </div>
+
+          <div style="background:rgba(255,145,0,0.05);border-left:3px solid var(--orange);padding:10px 14px;border-radius:0 8px 8px 0;">
+            <strong style="color:var(--orange);">3. Volume Mendukung</strong>
+            <span style="color:var(--muted);display:block;margin-top:4px;">
+              Volume candle terbaru dibandingkan rata-rata 30 candle. Volume ≥ 80% rata-rata = <b>minat pasar sehat</b>, tidak menyusut. Volume rendah menandakan kurangnya partisipasi = sinyal lemah.<br>
+              <i>Dasar: Volume Price Analysis (VPA) dan Wyckoff Method — volume mengonfirmasi pergerakan harga. "Volume precedes price."</i>
+            </span>
+          </div>
+
+          <div style="background:rgba(255,193,7,0.05);border-left:3px solid var(--yellow);padding:10px 14px;border-radius:0 8px 8px 0;">
+            <strong style="color:var(--yellow);">4. RSI Sehat (30–70)</strong>
+            <span style="color:var(--muted);display:block;margin-top:4px;">
+              RSI 30–70 = zona <b>netral</b>, tidak ekstrem. RSI &gt;70 = overbought (jenuh beli, risiko koreksi). RSI &lt;30 = oversold (jenuh jual). Entry di zona netral memberi risk/reward lebih baik.<br>
+              <i>Dasar: Relative Strength Index oleh J. Welles Wilder (1978). Mengukur kecepatan dan besarnya perubahan harga. Range 0–100, threshold klasik 70/30.</i>
+            </span>
+          </div>
+
+          <div style="background:rgba(0,200,83,0.05);border-left:3px solid var(--green);padding:10px 14px;border-radius:0 8px 8px 0;">
+            <strong style="color:var(--green);">5. MACD Bullish</strong>
+            <span style="color:var(--muted);display:block;margin-top:4px;">
+              Histogram MACD positif = garis MACD di atas garis sinyal → <b>momentum naik</b>. Histogram negatif = momentum turun. Histogram yang membesar/mengecil menunjukkan akselerasi/perlambatan tren.<br>
+              <i>Dasar: Moving Average Convergence Divergence oleh Gerald Appel (1979). Mengukur hubungan dua EMA (12 & 26) dengan garis sinyal EMA 9. Histogram = selisih MACD − Signal.</i>
+            </span>
+          </div>
+
+          <div style="background:rgba(255,23,68,0.05);border-left:3px solid var(--red);padding:10px 14px;border-radius:0 8px 8px 0;">
+            <strong style="color:var(--red);">6. Jauh dari ATH (&lt;85%)</strong>
+            <span style="color:var(--muted);display:block;margin-top:4px;">
+              Harga saat ini &lt;85% dari All-Time High = masih ada <b>ruang upside</b> signifikan sebelum resistance historis. Entry dekat ATH berisiko tinggi karena potensi distribusi / double top.<br>
+              <i>Dasar: Support/Resistance historis — ATH adalah level resistance psikologis terkuat. Semakin jauh dari ATH, semakin besar potensi reward-to-risk ratio.</i>
+            </span>
+          </div>
+
+        </div>
+      </details>
+    </div>
   `;
 
       setTimeout(() => {
@@ -1241,6 +1539,91 @@
     document.getElementById('tokenInput').addEventListener('keydown', function (e) {
       if (e.key === 'Enter') analyze();
     });
+
+    function shareResult(e) {
+      e.stopPropagation();
+      const token = document.getElementById('tokenInput').value.trim();
+      const tf = document.getElementById('timeframe').value;
+      const url = new URL(window.location);
+      url.hash = `#token=${encodeURIComponent(token)}&tf=${tf}`;
+      navigator.clipboard.writeText(url.toString()).then(() => {
+        const btn = document.querySelector('.btn-share');
+        if (btn) {
+          btn.classList.add('copied');
+          btn.textContent = '✅ Tersalin';
+          setTimeout(() => { btn.classList.remove('copied'); btn.innerHTML = '🔗 Share'; }, 2000);
+        }
+        const toast = document.getElementById('toast');
+        if (toast) { toast.textContent = 'Link disalin!'; toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000); }
+      }).catch(() => {
+        alert('Gagal menyalin. URL: ' + url.toString());
+      });
+    }
+
+    function shareScreenshot(e) {
+      e.stopPropagation();
+      const btn = document.querySelector('.btn-screenshot');
+      if (!btn) return;
+      const origHTML = btn.innerHTML;
+      btn.innerHTML = '⏳ Loading...';
+      btn.disabled = true;
+
+      const loadHtml2Canvas = () => {
+        if (window.html2canvas) return Promise.resolve(window.html2canvas);
+        return new Promise((resolve, reject) => {
+          const s = document.createElement('script');
+          s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+          s.onload = () => resolve(window.html2canvas);
+          s.onerror = reject;
+          document.head.appendChild(s);
+        });
+      };
+
+      loadHtml2Canvas().then(html2canvas => {
+        btn.innerHTML = '📸 Rendering...';
+        const el = document.getElementById('result');
+        return html2canvas(el, {
+          backgroundColor: '#0a0a0f',
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          onclone: (doc) => {
+            doc.querySelectorAll('.no-screenshot, .btn-share, .btn-screenshot').forEach(el => el.remove());
+          },
+        }).then(canvas => {
+          return new Promise(resolve => canvas.toBlob(resolve));
+        });
+      }).then(blob => {
+        return navigator.clipboard.write([
+          new ClipboardItem({ 'image/png': blob })
+        ]);
+      }).then(() => {
+        btn.innerHTML = '✅ Tersalin';
+        btn.style.borderColor = 'var(--green)';
+        btn.style.color = 'var(--green)';
+        setTimeout(() => { btn.removeAttribute('style'); btn.innerHTML = origHTML; btn.disabled = false; }, 2000);
+        const toast = document.getElementById('toast');
+        document.getElementById('toast').textContent = 'Screenshot disalin ke clipboard!';
+        if (toast) { toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000); }
+      }).catch(() => {
+        btn.innerHTML = origHTML;
+        btn.disabled = false;
+        alert('Gagal screenshot. Pastikan izin clipboard diizinkan.');
+      });
+    }
+
+    (function loadFromHash() {
+      const hash = window.location.hash.slice(1);
+      if (!hash) return;
+      const params = new URLSearchParams(hash);
+      const token = params.get('token');
+      const tf = params.get('tf');
+      if (token) document.getElementById('tokenInput').value = decodeURIComponent(token);
+      if (tf && document.getElementById('timeframe').querySelector(`option[value="${tf}"]`)) {
+        document.getElementById('timeframe').value = tf;
+      }
+      if (token) setTimeout(analyze, 300);
+    })();
   </script>
 </body>
 
