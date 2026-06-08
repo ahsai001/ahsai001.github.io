@@ -500,7 +500,7 @@
   <div class="container">
     <div class="header">
       <h1>Token Analyzer</h1>
-      <p>Analisa kelayakan token / crypto untuk buy — data real-time CoinGecko</p>
+      <p>Analisa kelayakan token / crypto untuk buy — data real-time exchange</p>
     </div>
 
     <div class="search-card">
@@ -517,12 +517,142 @@
     <div id="errorBox" style="display:none;"></div>
     <div class="result" id="result"></div>
 
-    <p class="note">* Data dari <a href="https://coingecko.com" target="_blank">CoinGecko API</a> (gratis). Bukan
-      rekomendasi finansial — selalu DYOR.</p>
+    <p class="note">* Data harga & history dari <a href="https://www.bybit.com" target="_blank">Bybit</a> / <a href="https://www.mexc.com" target="_blank">MEXC</a> API + cache 5 menit. Market cap & ATH tidak tersedia via exchange. Bukan rekomendasi finansial — selalu DYOR.</p>
   </div>
 
   <script>
-    const CG_BASE = 'https://api.coingecko.com/api/v3';
+    const CACHE_TTL = 5 * 60 * 1000;
+
+    function cacheGet(key) {
+      try {
+        const item = localStorage.getItem('ta_' + key);
+        if (!item) return null;
+        const { data, ts } = JSON.parse(item);
+        if (Date.now() - ts > CACHE_TTL) { localStorage.removeItem('ta_' + key); return null; }
+        return data;
+      } catch (e) { return null; }
+    }
+
+    function cacheSet(key, data) {
+      try {
+        localStorage.setItem('ta_' + key, JSON.stringify({ data, ts: Date.now() }));
+      } catch (e) { /* quota exceeded, ignore */ }
+    }
+
+    function cacheKey(...parts) {
+      return parts.map(p => String(p).toLowerCase().replace(/[^a-z0-9]/g, '_')).join('__');
+    }
+
+    const NAME_TO_SYMBOL = {
+      'bitcoin':'BTC','btc':'BTC','ethereum':'ETH','eth':'ETH','solana':'SOL','sol':'SOL',
+      'binance coin':'BNB','bnb':'BNB','ripple':'XRP','xrp':'XRP','dogecoin':'DOGE',
+      'doge':'DOGE','cardano':'ADA','ada':'ADA','avalanche':'AVAX','avax':'AVAX',
+      'polygon':'MATIC','matic':'MATIC','pol':'POL','polkadot':'DOT','dot':'DOT',
+      'chainlink':'LINK','link':'LINK','uniswap':'UNI','uni':'UNI','litecoin':'LTC',
+      'ltc':'LTC','shiba inu':'SHIB','shib':'SHIB','tron':'TRX','trx':'TRX',
+      'near protocol':'NEAR','near':'NEAR','aptos':'APT','apt':'APT','sui':'SUI',
+      'arbitrum':'ARB','arb':'ARB','optimism':'OP','pepe':'PEPE','bonk':'BONK',
+      'worldcoin':'WLD','wld':'WLD','render':'RENDER','rndr':'RENDER',
+      'fetch.ai':'FET','fet':'FET','injective':'INJ','inj':'INJ','celestia':'TIA',
+      'tia':'TIA','sei':'SEI','starknet':'STRK','strk':'STRK','ondo':'ONDO',
+      'jupiter':'JUP','jup':'JUP','pyth':'PYTH','wormhole':'W','ena':'ENA',
+      'notcoin':'NOT','not':'NOT','io.net':'IO','io':'IO','zksync':'ZK','zk':'ZK',
+      'layerzero':'ZRO','zro':'ZRO','major':'MAJOR','meme':'MEME','aave':'AAVE',
+      'filecoin':'FIL','fil':'FIL','cosmos':'ATOM','atom':'ATOM','stellar':'XLM',
+      'xlm':'XLM','vechain':'VET','vet':'VET','algorand':'ALGO','algo':'ALGO',
+      'the graph':'GRT','grt':'GRT','apecoin':'APE','ape':'APE','immutable':'IMX',
+      'imx':'IMX','flow':'FLOW','maker':'MKR','mkr':'MKR','thorchain':'RUNE',
+      'rune':'RUNE','hedera':'HBAR','hbar':'HBAR','internet computer':'ICP',
+      'icp':'ICP','mantle':'MNT','mnt':'MNT','flare':'FLR','flr':'FLR',
+      'axie infinity':'AXS','axs':'AXS','theta':'THETA','mina':'MINA',
+      'lido dao':'LDO','ldo':'LDO','ronin':'RON','ron':'RON','pendle':'PENDLE',
+      'raydium':'RAY','ray':'RAY','ordi':'ORDI','orca':'ORCA','drift':'DRIFT',
+      'grass':'GRASS','kadena':'KDA','kda':'KDA','toncoin':'TON','ton':'TON',
+      'gala':'GALA','beam':'BEAMX','zilliqa':'ZIL','zil':'ZIL','1inch':'1INCH',
+      'enjin':'ENJ','enj':'ENJ','bittensor':'TAO','tao':'TAO','dydx':'DYDX',
+      'sand':'SAND','mana':'MANA','chiliz':'CHZ','chz':'CHZ','jasmy':'JASMY',
+      'ankr':'ANKR','storj':'STORJ','compound':'COMP','comp':'COMP',
+      'synthetix':'SNX','snx':'SNX','arweave':'AR','ar':'AR','livepeer':'LPT',
+      'lpt':'LPT','ocean':'OCEAN','woo':'WOO','cake':'CAKE',
+      'hamster kombat':'HMSTR','hmstr':'HMSTR','dogs':'DOGS','catizen':'CATI',
+      'cati':'CATI','cat':'CAT','act':'ACT','pnut':'PNUT','usual':'USUAL',
+      'across':'ACX','velodrome':'VELO','velo':'VELO','kaia':'KAIA','aioz':'AIOZ',
+      'beamx':'BEAMX','mog':'MOG','sats':'1000SATS','rats':'RATS',
+      'decentraland':'MANA','the sandbox':'SAND','ethena':'ENA',
+      'woo network':'WOO','bittensor':'TAO',
+    };
+
+    function resolveSymbol(query, cgSymbol) {
+      if (cgSymbol) return cgSymbol.toUpperCase() + 'USDT';
+      const q = query.toLowerCase().trim();
+      if (NAME_TO_SYMBOL[q]) return NAME_TO_SYMBOL[q] + 'USDT';
+      const cleaned = q.replace(/[^a-z0-9]/g, '');
+      if (NAME_TO_SYMBOL[cleaned]) return NAME_TO_SYMBOL[cleaned] + 'USDT';
+      return q.toUpperCase() + 'USDT';
+    }
+
+    function resolveName(query, cgName, symbol) {
+      if (cgName) return cgName;
+      const q = query.toLowerCase().trim();
+      if (NAME_TO_SYMBOL[q] && NAME_TO_SYMBOL[q] + 'USDT' === symbol) return q;
+      const base = symbol.replace('USDT', '');
+      for (const [k, v] of Object.entries(NAME_TO_SYMBOL)) {
+        if (v + 'USDT' === symbol) return k;
+      }
+      return base.charAt(0) + base.slice(1).toLowerCase();
+    }
+
+    const EXCHANGES = [
+      {
+        name: 'Bybit', baseUrl: 'https://www.bybit.com/en/trade/spot/',
+        async fetch(symbol) {
+          const [kl, tk] = await Promise.all([
+            fetch(`https://api.bybit.com/v5/market/kline?category=spot&symbol=${symbol}&interval=D&limit=90`).then(r => r.json()),
+            fetch(`https://api.bybit.com/v5/market/tickers?category=spot&symbol=${symbol}`).then(r => r.json())
+          ]);
+          if (kl.retCode !== 0 || !kl.result || !kl.result.list || !kl.result.list.length) throw new Error('Bybit: no kline data');
+          if (tk.retCode !== 0 || !tk.result || !tk.result.list || !tk.result.list.length) throw new Error('Bybit: no ticker data');
+          const klines = kl.result.list.reverse();
+          const t = tk.result.list[0];
+          return {
+            prices: klines.map(k => [parseInt(k[0]), parseFloat(k[4])]),
+            volumes: klines.map(k => [parseInt(k[0]), parseFloat(k[6])]),
+            price: parseFloat(t.lastPrice),
+            change24h: parseFloat(t.price24hPcnt) * 100,
+            volume24h: parseFloat(t.turnover24h),
+            sourceUrl: `${this.baseUrl}${symbol}`,
+          };
+        }
+      },
+      {
+        name: 'MEXC', baseUrl: 'https://www.mexc.com/exchange/',
+        async fetch(symbol) {
+          const [kl, tk] = await Promise.all([
+            fetch(`https://api.mexc.com/api/v3/klines?symbol=${symbol}&interval=1d&limit=90`).then(r => r.json()),
+            fetch(`https://api.mexc.com/api/v3/ticker/24hr?symbol=${symbol}`).then(r => r.json())
+          ]);
+          if (!Array.isArray(kl) || !kl.length) throw new Error('MEXC: no kline data');
+          if (!tk || tk.lastPrice == null) throw new Error('MEXC: no ticker data');
+          return {
+            prices: kl.map(k => [k[0], parseFloat(k[4])]),
+            volumes: kl.map(k => [k[0], parseFloat(k[7])]),
+            price: parseFloat(tk.lastPrice),
+            change24h: parseFloat(tk.priceChangePercent),
+            volume24h: parseFloat(tk.quoteVolume),
+            sourceUrl: `${this.baseUrl}${symbol}`,
+          };
+        }
+      },
+    ];
+
+    async function fetchExchangeData(symbol) {
+      for (const ex of EXCHANGES) {
+        try {
+          return { ...(await ex.fetch(symbol)), source: ex.name };
+        } catch (e) { continue; }
+      }
+      return null;
+    }
 
     function calcEMA(prices, period) {
       if (prices.length < period) return null;
@@ -589,21 +719,139 @@
       };
     }
 
-    async function apiFetch(url) {
-      const resp = await fetch(url);
-      if (resp.status === 429) throw new Error('Rate limit CoinGecko tercapai. Tunggu 1 menit lalu coba lagi.');
-      if (!resp.ok) throw new Error(`API error: ${resp.status}`);
-      return resp.json();
-    }
+    function processAndRender(coin, coinData, marketChart, apiSource, apiSourceUrl) {
+      const loadingText = document.getElementById('loadingText');
+      const loading = document.getElementById('loading');
+      const btn = document.getElementById('analyzeBtn');
+      const result = document.getElementById('result');
+      const errorBox = document.getElementById('errorBox');
 
-    async function searchCoin(query) {
-      const data = await apiFetch(`${CG_BASE}/search?query=${encodeURIComponent(query)}`);
-      if (!data.coins || data.coins.length === 0) return null;
-      const q = query.toLowerCase();
-      const exact = data.coins.find(c =>
-        c.symbol.toLowerCase() === q || c.name.toLowerCase() === q || c.id.toLowerCase() === q
-      );
-      return exact || data.coins[0];
+      try {
+        loadingText.textContent = 'Menghitung indikator teknikal...';
+        const prices = marketChart.prices.map(p => p[1]);
+        const totalVolumes = marketChart.total_volumes ? marketChart.total_volumes.map(v => v[1]) : [];
+
+        if (prices.length < 30) throw new Error('Data historis terlalu sedikit untuk analisa.');
+
+        const mk = coinData.market_data;
+        const price = mk.current_price.usd;
+        const change24h = mk.price_change_percentage_24h || 0;
+        const marketCap = mk.market_cap ? mk.market_cap.usd : null;
+        const volume24h = mk.total_volume ? mk.total_volume.usd : 0;
+        const rawAth = mk.ath && mk.ath.usd ? mk.ath.usd : null;
+        const rawAtl = mk.atl && mk.atl.usd ? mk.atl.usd : null;
+        const periodHigh = prices.length > 0 ? Math.max(...prices) : price;
+        const periodLow = prices.length > 0 ? Math.min(...prices) : price;
+        const athPrice = rawAth || periodHigh;
+        const atlPrice = rawAtl || periodLow;
+        const hasAth = rawAth !== null;
+        const priceVsAth = price / athPrice;
+        const priceVsAtl = atlPrice > 0 ? price / atlPrice : 999;
+
+        const rsi = calcRSI(prices, 14);
+        const ema20 = calcEMA(prices, 20);
+        const ema50 = calcEMA(prices, 50);
+        const macd = calcMACD(prices);
+
+        const avgVol30 = totalVolumes.length >= 30
+          ? totalVolumes.slice(-30).reduce((a, b) => a + b, 0) / 30
+          : totalVolumes.length > 0
+            ? totalVolumes.reduce((a, b) => a + b, 0) / totalVolumes.length
+            : 0;
+        const volRatio = avgVol30 > 0 ? totalVolumes[totalVolumes.length - 1] / avgVol30 : 1;
+
+        const emaGapPct = ema20 && ema50 ? ((ema20 - ema50) / ema50) * 100 : 0;
+        let emaCross;
+        if (emaGapPct > 1.5) emaCross = 'golden_cross';
+        else if (emaGapPct < -1.5) emaCross = 'death_cross';
+        else emaCross = 'neutral';
+
+        const macdHistogram = macd.histogram;
+
+        const priceAboveEma20 = ema20 !== null && price > ema20;
+        const priceAboveEma50 = ema50 !== null && price > ema50;
+        const ema20AboveEma50 = emaCross === 'golden_cross' || (emaGapPct > 0);
+        const rsiHealthy = rsi !== null && rsi >= 30 && rsi <= 70;
+        const macdBullish = macdHistogram !== null && macdHistogram > 0;
+        const notNearAth = hasAth ? (priceVsAth < 0.85) : null;
+        const volumeSolid = volRatio > 0.8;
+        const fmtPrice = (n) => {
+          if (n == null || isNaN(n)) return 'N/A';
+          if (n >= 1000) return '$' + n.toLocaleString(undefined, {maximumFractionDigits:2});
+          if (n >= 1) return '$' + n.toFixed(2);
+          if (n >= 0.01) return '$' + n.toFixed(4);
+          return '$' + n.toFixed(6);
+        };
+
+        const athCheck = hasAth
+          ? { key: 'ath', label: 'Jauh dari ATH (<85%)', desc: 'Masih ada ruang upside signifikan', met: notNearAth, detail: `${((1-priceVsAth)*100).toFixed(0)}% di bawah ATH (${fmtPrice(athPrice)})`, icon: '🚀' }
+          : { key: 'ath', label: 'Jauh dari ATH (<85%)', desc: 'Data ATH tidak tersedia', met: true, detail: `ATH true tidak diketahui; 90d high: ${fmtPrice(periodHigh)}`, icon: '⚠️', na: true };
+
+        const checks = [
+          { key: 'ema',   label: 'EMA 20 > EMA 50',        desc: 'Golden Cross — tren naik',                                             met: ema20AboveEma50, detail: `EMA20: ${fmtPrice(ema20)} | EMA50: ${fmtPrice(ema50)} | Gap: ${emaGapPct>0?'+':''}${emaGapPct.toFixed(2)}%`, icon: '📈' },
+          { key: 'price', label: 'Harga > EMA 20',           desc: 'Harga di atas support dinamis',                                      met: priceAboveEma20, detail: `Harga: ${fmtPrice(price)} ${priceAboveEma20?'>':'<'} EMA20: ${fmtPrice(ema20)}`, icon: '💰' },
+          { key: 'vol',   label: 'Volume Mendukung',         desc: 'Volume > rata-rata 30 hari (minat pasar)',                          met: volumeSolid,     detail: `Vol Ratio: ${volRatio.toFixed(2)} (threshold > 0.8)`, icon: '📊' },
+          { key: 'rsi',   label: 'RSI Sehat (30–70)',        desc: 'Tidak overbought / oversold ekstrem',                                met: rsiHealthy,      detail: `RSI: ${rsi ? rsi.toFixed(1) : 'N/A'} ${rsiHealthy ? '✅ Netral' : (rsi>70 ? '⚠️ Overbought' : '⚠️ Oversold')}`, icon: '📉' },
+          { key: 'macd',  label: 'MACD Bullish',             desc: 'Histogram positif — momentum naik',                                  met: macdBullish,     detail: `Histogram: ${macdHistogram ? macdHistogram.toFixed(4) : 'N/A'} ${macdBullish ? '▲ Naik' : '▼ Turun'}`, icon: '📐' },
+          athCheck,
+        ];
+
+        const activeChecks = checks.filter(c => !c.na);
+        const totalChecks = activeChecks.length;
+        const checksMet = activeChecks.filter(c => c.met).length;
+        const checksFailed = activeChecks.filter(c => !c.met);
+
+        let verdict, verdictClass;
+        if (checksMet >= totalChecks) { verdict = 'STRONG BUY'; verdictClass = 'buy'; }
+        else if (checksMet >= totalChecks - 1) { verdict = 'LAYAK BUY'; verdictClass = 'buy'; }
+        else if (checksMet >= totalChecks - 2) { verdict = 'TUNGGU / WAIT'; verdictClass = 'wait'; }
+        else { verdict = 'JANGAN BUY'; verdictClass = 'sell'; }
+
+        let score = Math.round(10 + (totalChecks > 0 ? (checksMet / totalChecks) * 84 : 0));
+        if (emaCross === 'golden_cross') score += 4;
+        if (change24h > 5) score += 2;
+        else if (change24h < -5) score -= 3;
+        if (priceAboveEma50) score += 3;
+        score = Math.max(5, Math.min(98, score));
+
+        const risks = [];
+        const strengths = [];
+        checks.forEach(c => {
+          if (c.na) { risks.push({ text: `${c.label} — ${c.detail}`, color: 'yellow' }); return; }
+          if (c.met) strengths.push({ text: `${c.label} — ${c.detail}`, color: 'green' });
+          else risks.push({ text: `${c.label} — ${c.detail}`, color: c.key === 'vol' || c.key === 'rsi' ? 'yellow' : 'red' });
+        });
+        if (emaCross === 'golden_cross') strengths.push({ text: `Golden Cross terkonfirmasi (gap +${emaGapPct.toFixed(2)}%)`, color: 'green' });
+        if (emaCross === 'death_cross') risks.push({ text: `Death Cross terkonfirmasi (gap ${emaGapPct.toFixed(2)}%)`, color: 'red' });
+        if (change24h < -7) risks.push({ text: `Penurunan tajam 24 jam (${change24h.toFixed(1)}%)`, color: 'red' });
+        if (change24h > 7) strengths.push({ text: `Kenaikan kuat 24 jam (+${change24h.toFixed(1)}%)`, color: 'green' });
+
+        const data = {
+          symbol: coin.symbol.toUpperCase(), name: coin.name, coinId: coin.id,
+          price, change24h, marketCap, volume24h,
+          athPrice: rawAth || periodHigh, atlPrice: rawAtl || periodLow,
+          priceVsAth, priceVsAtl, hasAth,
+          rsi, macdSignal: macdHistogram, macdLine: macd.macd,
+          volRatio, ema20, ema50, emaGapPct, emaCross,
+          priceAboveEma20, priceAboveEma50,
+          checks, checksMet, totalChecks, checksFailed,
+          score, verdict, verdictClass,
+          strengths, risks,
+          prices, ema20Arr: calcAllEMA(prices, 20), ema50Arr: calcAllEMA(prices, 50),
+          apiSource, apiSourceUrl,
+        };
+
+        loading.classList.remove('active');
+        btn.disabled = false;
+        renderResult(data);
+        result.classList.add('active');
+      } catch (err) {
+        loading.classList.remove('active');
+        btn.disabled = false;
+        errorBox.style.display = 'block';
+        errorBox.innerHTML = `<div class="error-msg">${err.message}</div>`;
+        console.error(err);
+      }
     }
 
     async function analyze() {
@@ -620,123 +868,40 @@
       if (result) { result.classList.remove('active'); result.innerHTML = ''; }
       if (errorBox) { errorBox.style.display = 'none'; }
       if (loading) loading.classList.add('active');
-      if (loadingText) loadingText.textContent = 'Mencari token di CoinGecko...';
 
       try {
-        const coin = await searchCoin(input);
-        if (!coin) throw new Error(`Token "${input}" tidak ditemukan di CoinGecko.`);
-
-        loadingText.textContent = `Mengambil data ${coin.name} (${coin.symbol.toUpperCase()})...`;
-        const [coinData, marketChart] = await Promise.all([
-          apiFetch(`${CG_BASE}/coins/${coin.id}?localization=false&tickers=false&community_data=false&developer_data=false`),
-          apiFetch(`${CG_BASE}/coins/${coin.id}/market_chart?vs_currency=usd&days=90`)
-        ]);
-
-        loadingText.textContent = 'Menghitung indikator teknikal...';
-        const prices = marketChart.prices.map(p => p[1]);
-        const totalVolumes = marketChart.total_volumes ? marketChart.total_volumes.map(v => v[1]) : [];
-
-        if (prices.length < 30) throw new Error('Data historis terlalu sedikit untuk analisa.');
-
-        const mk = coinData.market_data;
-        const price = mk.current_price.usd;
-        const change24h = mk.price_change_percentage_24h || 0;
-        const marketCap = mk.market_cap.usd;
-        const volume24h = mk.total_volume.usd;
-        const athPrice = mk.ath.usd;
-        const atlPrice = mk.atl.usd;
-        const priceVsAth = price / athPrice;
-        const priceVsAtl = atlPrice > 0 ? price / atlPrice : 999;
-
-        const rsi = calcRSI(prices, 14);
-        const ema20 = calcEMA(prices, 20);
-        const ema50 = calcEMA(prices, 50);
-        const macd = calcMACD(prices);
-
-        const avgVol30 = totalVolumes.length >= 30
-          ? totalVolumes.slice(-30).reduce((a, b) => a + b, 0) / 30
-          : totalVolumes.reduce((a, b) => a + b, 0) / totalVolumes.length;
-        const volRatio = avgVol30 > 0 ? totalVolumes[totalVolumes.length - 1] / avgVol30 : 1;
-
-        const emaGapPct = ema20 && ema50 ? ((ema20 - ema50) / ema50) * 100 : 0;
-        let emaCross;
-        if (emaGapPct > 1.5) emaCross = 'golden_cross';
-        else if (emaGapPct < -1.5) emaCross = 'death_cross';
-        else emaCross = 'neutral';
-
-        const macdHistogram = macd.histogram;
-
-        const priceAboveEma20 = ema20 !== null && price > ema20;
-        const priceAboveEma50 = ema50 !== null && price > ema50;
-        const priceDec = price < 0.01 ? 6 : price < 1 ? 4 : 2;
-        const ema20AboveEma50 = emaCross === 'golden_cross' || (emaGapPct > 0);
-        const rsiHealthy = rsi !== null && rsi >= 30 && rsi <= 70;
-        const macdBullish = macdHistogram !== null && macdHistogram > 0;
-        const notNearAth = priceVsAth < 0.85;
-        const volumeSolid = volRatio > 0.8;
-        const fmtPrice = (n) => {
-          if (n == null || isNaN(n)) return 'N/A';
-          if (n >= 1000) return '$' + n.toLocaleString(undefined, {maximumFractionDigits:2});
-          if (n >= 1) return '$' + n.toFixed(2);
-          if (n >= 0.01) return '$' + n.toFixed(4);
-          return '$' + n.toFixed(6);
+        loadingText.textContent = 'Mencari token...';
+        const exSymbol = resolveSymbol(input, null);
+        const coin = {
+          id: exSymbol.toLowerCase(),
+          symbol: exSymbol.replace('USDT', '').toLowerCase(),
+          name: resolveName(input, null, exSymbol)
         };
 
-        const checks = [
-          { key: 'ema',   label: 'EMA 20 > EMA 50',        desc: 'Golden Cross — tren naik',                                             met: ema20AboveEma50, detail: `EMA20: ${fmtPrice(ema20)} | EMA50: ${fmtPrice(ema50)} | Gap: ${emaGapPct>0?'+':''}${emaGapPct.toFixed(2)}%`, icon: '📈' },
-          { key: 'price', label: 'Harga > EMA 20',           desc: 'Harga di atas support dinamis',                                      met: priceAboveEma20, detail: `Harga: ${fmtPrice(price)} ${priceAboveEma20?'>':'<'} EMA20: ${fmtPrice(ema20)}`, icon: '💰' },
-          { key: 'vol',   label: 'Volume Mendukung',         desc: 'Volume > rata-rata 30 hari (minat pasar)',                          met: volumeSolid,     detail: `Vol Ratio: ${volRatio.toFixed(2)} (threshold > 0.8)`, icon: '📊' },
-          { key: 'rsi',   label: 'RSI Sehat (30–70)',        desc: 'Tidak overbought / oversold ekstrem',                                met: rsiHealthy,      detail: `RSI: ${rsi ? rsi.toFixed(1) : 'N/A'} ${rsiHealthy ? '✅ Netral' : (rsi>70 ? '⚠️ Overbought' : '⚠️ Oversold')}`, icon: '📉' },
-          { key: 'macd',  label: 'MACD Bullish',             desc: 'Histogram positif — momentum naik',                                  met: macdBullish,     detail: `Histogram: ${macdHistogram ? macdHistogram.toFixed(4) : 'N/A'} ${macdBullish ? '▲ Naik' : '▼ Turun'}`, icon: '📐' },
-          { key: 'ath',   label: 'Jauh dari ATH (<85%)',     desc: 'Masih ada ruang upside signifikan',                                  met: notNearAth,      detail: `${((1-priceVsAth)*100).toFixed(0)}% di bawah ATH (${fmtPrice(athPrice)})`, icon: '🚀' },
-        ];
+        loadingText.textContent = `Mengambil data ${coin.name.toUpperCase()}...`;
 
-        const totalChecks = checks.length;
-        const checksMet = checks.filter(c => c.met).length;
-        const checksFailed = checks.filter(c => !c.met);
+        const cached = cacheGet(cacheKey('exData', exSymbol));
+        let exData = cached;
+        if (!exData) {
+          exData = await fetchExchangeData(exSymbol);
+          if (exData) cacheSet(cacheKey('exData', exSymbol), { prices: exData.prices, volumes: exData.volumes, price: exData.price, change24h: exData.change24h, volume24h: exData.volume24h, source: exData.source, sourceUrl: exData.sourceUrl });
+        }
 
-        let verdict, verdictClass;
-        if (checksMet >= 5) { verdict = 'STRONG BUY'; verdictClass = 'buy'; }
-        else if (checksMet === 4) { verdict = 'LAYAK BUY'; verdictClass = 'buy'; }
-        else if (checksMet === 3) { verdict = 'TUNGGU / WAIT'; verdictClass = 'wait'; }
-        else { verdict = 'JANGAN BUY'; verdictClass = 'sell'; }
+        if (!exData) throw new Error(`Token "${input}" tidak ditemukan di exchange. Coba nama/simbol lain.`);
 
-        let score = 10 + checksMet * 14;
-        if (emaCross === 'golden_cross') score += 4;
-        if (change24h > 5) score += 2;
-        else if (change24h < -5) score -= 3;
-        if (priceAboveEma50) score += 3;
-        score = Math.max(5, Math.min(98, Math.round(score)));
-
-        const risks = [];
-        const strengths = [];
-        checks.forEach(c => {
-          if (c.met) strengths.push({ text: `${c.label} — ${c.detail}`, color: 'green' });
-          else risks.push({ text: `${c.label} — ${c.detail}`, color: c.key === 'vol' || c.key === 'rsi' ? 'yellow' : 'red' });
-        });
-        if (emaCross === 'golden_cross') strengths.push({ text: `Golden Cross terkonfirmasi (gap +${emaGapPct.toFixed(2)}%)`, color: 'green' });
-        if (emaCross === 'death_cross') risks.push({ text: `Death Cross terkonfirmasi (gap ${emaGapPct.toFixed(2)}%)`, color: 'red' });
-        if (change24h < -7) risks.push({ text: `Penurunan tajam 24 jam (${change24h.toFixed(1)}%)`, color: 'red' });
-        if (change24h > 7) strengths.push({ text: `Kenaikan kuat 24 jam (+${change24h.toFixed(1)}%)`, color: 'green' });
-
-        const data = {
-          symbol: coin.symbol.toUpperCase(), name: coin.name, coinId: coin.id,
-          price, change24h, marketCap, volume24h,
-          athPrice, atlPrice, priceVsAth, priceVsAtl,
-          rsi, macdSignal: macdHistogram, macdLine: macd.macd,
-          volRatio, ema20, ema50, emaGapPct, emaCross,
-          priceAboveEma20, priceAboveEma50,
-          checks, checksMet, totalChecks, checksFailed,
-          score, verdict, verdictClass,
-          strengths, risks,
-          prices, ema20Arr: calcAllEMA(prices, 20), ema50Arr: calcAllEMA(prices, 50),
-          priceDecimals: price < 0.01 ? 6 : price < 1 ? 4 : 2,
+        const marketChart = { prices: exData.prices, total_volumes: exData.volumes };
+        const coinData = {
+          market_data: {
+            current_price: { usd: exData.price },
+            price_change_percentage_24h: exData.change24h,
+            market_cap: null,
+            total_volume: { usd: exData.volume24h || 0 },
+            ath: null,
+            atl: null,
+          }
         };
 
-        loading.classList.remove('active');
-        btn.disabled = false;
-        renderResult(data);
-        result.classList.add('active');
+        processAndRender(coin, coinData, marketChart, exData.source, exData.sourceUrl);
       } catch (err) {
         loading.classList.remove('active');
         btn.disabled = false;
@@ -810,6 +975,7 @@
 
     function renderResult(d) {
       const fmt = (n, dec) => {
+        if (n == null) return 'N/A';
         if (n >= 1e9) return '$' + (n / 1e9).toFixed(dec || 2) + 'B';
         if (n >= 1e6) return '$' + (n / 1e6).toFixed(dec || 2) + 'M';
         if (n >= 1e3) return '$' + (n / 1e3).toFixed(dec || 2) + 'K';
@@ -828,38 +994,38 @@
     <div class="verdict-card">
       <div class="verdict-label">Rekomendasi</div>
       <div class="verdict-badge ${d.verdictClass}">${d.verdict}</div>
-      <div class="score ${d.checksMet>=5?'green':(d.checksMet>=3?'yellow':'red')}">${d.score}/100</div>
+      <div class="score ${d.checksMet>=d.totalChecks-1?'green':(d.checksMet>=d.totalChecks-2?'yellow':'red')}">${d.score}/100</div>
       <div style="color:var(--muted);font-size:0.85rem;">${d.checksMet}/${d.totalChecks} indikator terpenuhi — Skor: ${d.score}/100</div>
-      <div class="data-source">Data: <a href="https://www.coingecko.com/en/coins/${d.coinId}" target="_blank">CoinGecko</a></div>
+      <div class="data-source">Data: <a href="${d.apiSourceUrl}" target="_blank">${d.apiSource}</a></div>
     </div>
 
     <div class="verdict-card" style="padding:20px 24px;">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
-        <span style="background:${d.checksMet>=4?'rgba(0,200,83,0.15)':(d.checksMet>=3?'rgba(255,193,7,0.15)':'rgba(255,23,68,0.15)')};padding:4px 10px;border-radius:6px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${d.checksMet>=4?'var(--green)':(d.checksMet>=3?'var(--yellow)':'var(--red)')};">
-          ${d.checksMet >= 4 ? 'Sinyal Kuat' : (d.checksMet >= 3 ? 'Perlu Konfirmasi' : 'Sinyal Lemah')}
+        <span style="background:${d.checksMet>=d.totalChecks-1?'rgba(0,200,83,0.15)':(d.checksMet>=d.totalChecks-2?'rgba(255,193,7,0.15)':'rgba(255,23,68,0.15)')};padding:4px 10px;border-radius:6px;font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:${d.checksMet>=d.totalChecks-1?'var(--green)':(d.checksMet>=d.totalChecks-2?'var(--yellow)':'var(--red)')};">
+          ${d.checksMet >= d.totalChecks - 1 ? 'Sinyal Kuat' : (d.checksMet >= d.totalChecks - 2 ? 'Perlu Konfirmasi' : 'Sinyal Lemah')}
         </span>
         <span style="color:var(--muted);font-size:0.78rem;text-transform:uppercase;letter-spacing:1px;"> Insight Analisa</span>
       </div>
       <div style="display:flex;flex-direction:column;gap:8px;">
         ${d.checks.map((c, i) => `
-          <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:${c.met?'rgba(0,200,83,0.05)':'rgba(255,23,68,0.04)'};border:1px solid ${c.met?'rgba(0,200,83,0.15)':'rgba(255,23,68,0.1)'};">
-            <span style="font-size:1.2rem;width:28px;text-align:center;flex-shrink:0;">${c.met ? '✅' : '❌'}</span>
+          <div style="display:flex;align-items:center;gap:12px;padding:10px 14px;border-radius:10px;background:${c.na?'rgba(255,193,7,0.06)':(c.met?'rgba(0,200,83,0.05)':'rgba(255,23,68,0.04)')};border:1px solid ${c.na?'rgba(255,193,7,0.2)':(c.met?'rgba(0,200,83,0.15)':'rgba(255,23,68,0.1)')};">
+            <span style="font-size:1.2rem;width:28px;text-align:center;flex-shrink:0;">${c.na ? '⚠️' : (c.met ? '✅' : '❌')}</span>
             <div style="flex:1;min-width:0;">
               <div style="font-weight:700;font-size:0.88rem;color:var(--text);">${i+1}. ${c.label}</div>
               <div style="font-size:0.72rem;color:var(--muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${c.detail}</div>
             </div>
-            <span style="font-size:0.68rem;font-weight:700;padding:3px 10px;border-radius:20px;background:${c.met?'rgba(0,200,83,0.12)':'rgba(255,23,68,0.12)'};color:${c.met?'var(--green)':'var(--red)'};white-space:nowrap;flex-shrink:0;">
-              ${c.met ? 'PASS' : 'FAIL'}
+            <span style="font-size:0.68rem;font-weight:700;padding:3px 10px;border-radius:20px;background:${c.na?'rgba(255,193,7,0.12)':(c.met?'rgba(0,200,83,0.12)':'rgba(255,23,68,0.12)')};color:${c.na?'var(--yellow)':(c.met?'var(--green)':'var(--red)')};white-space:nowrap;flex-shrink:0;">
+              ${c.na ? 'N/A' : (c.met ? 'PASS' : 'FAIL')}
             </span>
           </div>
         `).join('')}
       </div>
-      <div style="margin-top:14px;padding:12px 14px;border-radius:10px;background:${d.checksMet>=4?'rgba(0,200,83,0.08)':(d.checksMet>=3?'rgba(255,193,7,0.08)':'rgba(255,23,68,0.06)')};text-align:center;border:1px solid ${d.checksMet>=4?'rgba(0,200,83,0.2)':(d.checksMet>=3?'rgba(255,193,7,0.2)':'rgba(255,23,68,0.15)')};">
-        <div style="font-size:0.85rem;font-weight:700;color:${d.checksMet>=4?'var(--green)':(d.checksMet>=3?'var(--yellow)':'var(--red)')};margin-bottom:4px;">
-          ${d.checksMet >= 5 ? '🔥 STRONG BUY — Semua indikator aligned, peluang entry sangat baik' :
-            d.checksMet === 4 ? '📈 LAYAK BUY — Mayoritas indikator mendukung buy' :
-            d.checksMet === 3 ? '⏳ TUNGGU — Setengah indikator support, tunggu konfirmasi tambahan' :
-            d.checksMet === 2 ? '⚠️ RISIKO TINGGI — Hanya 2/6 indikator, lebih baik hindari buy' :
+      <div style="margin-top:14px;padding:12px 14px;border-radius:10px;background:${d.checksMet>=d.totalChecks-1?'rgba(0,200,83,0.08)':(d.checksMet>=d.totalChecks-2?'rgba(255,193,7,0.08)':'rgba(255,23,68,0.06)')};text-align:center;border:1px solid ${d.checksMet>=d.totalChecks-1?'rgba(0,200,83,0.2)':(d.checksMet>=d.totalChecks-2?'rgba(255,193,7,0.2)':'rgba(255,23,68,0.15)')};">
+        <div style="font-size:0.85rem;font-weight:700;color:${d.checksMet>=d.totalChecks-1?'var(--green)':(d.checksMet>=d.totalChecks-2?'var(--yellow)':'var(--red)')};margin-bottom:4px;">
+          ${d.checksMet >= d.totalChecks ? '🔥 STRONG BUY — Semua indikator aligned, peluang entry sangat baik' :
+            d.checksMet >= d.totalChecks - 1 ? '📈 LAYAK BUY — Mayoritas indikator mendukung buy' :
+            d.checksMet >= d.totalChecks - 2 ? '⏳ TUNGGU — Setengah indikator support, tunggu konfirmasi tambahan' :
+            d.checksMet >= 2 ? '⚠️ RISIKO TINGGI — Hanya sedikit indikator terpenuhi, lebih baik hindari buy' :
             '🛑 JANGAN BUY — Hampir semua indikator menolak, sinyal sangat bearish'}
         </div>
         <div style="font-size:0.7rem;color:var(--muted);">
