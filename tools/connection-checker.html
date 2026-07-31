@@ -482,6 +482,7 @@
 
     async function checkDns(hostname) {
       const t0 = performance.now();
+      const DNS_TIMEOUT = 5000;
 
       const providers = [
         {
@@ -501,31 +502,39 @@
         },
       ];
 
-      for (const provider of providers) {
+      async function tryProvider(provider) {
+        const ctrl = new AbortController();
+        const timeout = setTimeout(() => ctrl.abort(), DNS_TIMEOUT);
         try {
-          const opts = {};
+          const opts = { signal: ctrl.signal };
           if (provider.headers) opts.headers = provider.headers;
           const res = await fetch(provider.url, opts);
-          const t1 = performance.now();
           const data = await res.json();
-
-          let ips = [];
-          if (provider.name === 'Google') {
-            ips = (data.Answer || []).filter(a => a.type === 1).map(a => a.data);
-          } else {
-            ips = (data.Answer || []).filter(a => a.type === 1).map(a => a.data);
-          }
-
           return {
-            resolved: ips.length > 0,
-            ips: ips,
-            timeMs: Math.round(t1 - t0),
+            resolved: true,
+            ips: (data.Answer || []).filter(a => a.type === 1).map(a => a.data),
             provider: provider.name,
             error: null
           };
-        } catch (e) {
-          continue;
+        } catch {
+          return null;
+        } finally {
+          clearTimeout(timeout);
         }
+      }
+
+      const results = await Promise.all(providers.map(p => tryProvider(p)));
+      const success = results.find(r => r !== null);
+
+      if (success) {
+        const t1 = performance.now();
+        return {
+          resolved: success.ips.length > 0,
+          ips: success.ips,
+          timeMs: Math.round(t1 - t0),
+          provider: success.provider,
+          error: null
+        };
       }
 
       const t1 = performance.now();
@@ -910,13 +919,14 @@
       loading.classList.add('active');
 
       try {
-        const target = await checkUrl(url);
+        const refChecks = REFERENCE_URLS
+          .filter(ref => ref.url !== url)
+          .map(ref => checkUrl(ref.url));
 
-        const refResults = [];
-        for (const ref of REFERENCE_URLS) {
-          if (ref.url === url) continue;
-          refResults.push(await checkUrl(ref.url));
-        }
+        const [target, ...refResults] = await Promise.all([
+          checkUrl(url),
+          ...refChecks
+        ]);
 
         resultCard.innerHTML = renderResult(target, refResults, REFERENCE_URLS);
         resultCard.classList.add('active');
