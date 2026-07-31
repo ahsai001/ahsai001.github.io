@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connection Checker</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --card: #13131a;
+      --border: #1e1e2a;
+      --text: #e0e0e0;
+      --muted: #777;
+      --green: #00c853;
+      --red: #ff1744;
+      --yellow: #ffc107;
+      --blue: #448aff;
+      --accent: #7c4dff;
+      --orange: #ff9100;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+      background-image:
+        radial-gradient(ellipse at 20% 50%, rgba(124, 77, 255, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(0, 200, 83, 0.06) 0%, transparent 50%);
+    }
+
+    .container {
+      width: 100%;
+      max-width: 850px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .header {
+      text-align: center;
+      padding: 30px 0 10px;
+    }
+
+    .header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--accent), var(--green));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .header p {
+      color: var(--muted);
+      margin-top: 6px;
+      font-size: 0.9rem;
+    }
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.85rem;
+      transition: color 0.2s;
+      margin-top: 4px;
+    }
+
+    .back-link:hover {
+      color: var(--accent);
+    }
+
+    .search-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .search-card input {
+      flex: 1;
+      min-width: 200px;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .search-card input:focus {
+      border-color: var(--accent);
+    }
+
+    .search-card input::placeholder {
+      color: var(--muted);
+    }
+
+    .btn {
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), #651fff);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 20px rgba(124, 77, 255, 0.3);
+    }
+
+    .btn-primary:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .loading-indicator {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 16px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .loading-indicator.active {
+      display: flex;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 2px solid var(--border);
+      border-top: 2px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .result-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: none;
+    }
+
+    .result-card.active {
+      display: block;
+    }
+
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .status-badge.ok {
+      background: rgba(0, 200, 83, 0.15);
+      color: var(--green);
+    }
+
+    .status-badge.fail {
+      background: rgba(255, 23, 68, 0.15);
+      color: var(--red);
+    }
+
+    .status-badge.warn {
+      background: rgba(255, 193, 7, 0.15);
+      color: var(--yellow);
+    }
+
+    .result-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+    }
+
+    .result-row:last-child {
+      border-bottom: none;
+    }
+
+    .result-label {
+      color: var(--muted);
+    }
+
+    .result-value {
+      font-weight: 500;
+      text-align: right;
+    }
+
+    .result-value.ip {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.85rem;
+    }
+
+    .section-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      margin: 24px 0 12px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--accent);
+      display: inline-block;
+      color: var(--text);
+    }
+
+    .analysis-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      margin-top: 12px;
+    }
+
+    .analysis-card h3 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .analysis-card .kesimpulan {
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: var(--text);
+      margin-bottom: 14px;
+      padding: 12px;
+      background: rgba(124, 77, 255, 0.08);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 8px 8px 0;
+    }
+
+    .rekomendasi-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .rekomendasi-list li {
+      padding: 8px 0;
+      font-size: 0.88rem;
+      color: var(--text);
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      line-height: 1.5;
+    }
+
+    .rekomendasi-list li::before {
+      content: '→';
+      color: var(--accent);
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .ref-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .ref-item {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .ref-item .ref-label {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+      text-transform: capitalize;
+    }
+
+    .ref-item .ref-icon {
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .ref-item .ref-time {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .inline-spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border);
+      border-top: 2px solid var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+    }
+
+    .quick-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .chip {
+      padding: 6px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      font-size: 0.8rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .chip:hover {
+      border-color: var(--accent);
+      color: var(--text);
+    }
+
+    .warning-banner {
+      background: rgba(255, 145, 0, 0.12);
+      border: 1px solid rgba(255, 145, 0, 0.3);
+      border-radius: 12px;
+      padding: 16px 20px;
+      font-size: 0.88rem;
+      color: var(--orange);
+      line-height: 1.6;
+      display: none;
+    }
+
+    .warning-banner.active {
+      display: block;
+    }
+
+    .warning-banner code {
+      background: rgba(255, 145, 0, 0.15);
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.82rem;
+      color: #ffb74d;
+    }
+
+    .warning-banner a {
+      color: #ffb74d;
+      font-weight: 600;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Connection Checker</h1>
+      <p>Cek masalah koneksi ke URL tertentu & bandingkan dengan situs referensi</p>
+      <a href="../index.html" class="back-link">← Kembali ke Portfolio</a>
+    </div>
+
+    <div class="warning-banner" id="fileWarning">
+      <strong>⚠️ Terdeteksi kamu membuka file ini langsung via <code>file://</code></strong><br><br>
+      Browser memblokir permintaan jaringan cross-origin dari <code>file://</code> sehingga semua pengecekan akan selalu gagal.<br><br>
+      <strong>Solusi:</strong>
+      <ul style="margin:8px 0 0 18px;padding:0">
+        <li>Buka via <a href="../tools/connection-checker.html">GitHub Pages</a> jika sudah deploy.</li>
+        <li>Atau jalankan local server: <code>python3 -m http.server 8080</code> lalu buka <code>http://localhost:8080/tools/connection-checker.html</code></li>
+        <li>Atau install <code>npx serve .</code> di root folder proyek.</li>
+      </ul>
+      <br>
+      <span style="font-size:0.8rem;color:var(--muted)">Klik tombol di bawah untuk tetap mencoba (mungkin gagal).</span>
+    </div>
+
+    <div class="search-card">
+      <input type="text" id="urlInput" placeholder="Masukkan URL, mis. https://contoh.com" autocomplete="off" />
+      <button class="btn btn-primary" id="checkBtn" onclick="runCheck()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        Cek Koneksi
+      </button>
+    </div>
+
+    <div class="quick-actions">
+      <span style="color:var(--muted);font-size:0.8rem;align-self:center">Contoh:</span>
+      <span class="chip" onclick="fillUrl('https://www.google.com')">Google</span>
+      <span class="chip" onclick="fillUrl('https://syshab.com')">syshab.com</span>
+      <span class="chip" onclick="fillUrl('https://1.1.1.1')">Cloudflare</span>
+    </div>
+
+    <div class="loading-indicator" id="loading">
+      <div class="spinner"></div> Mengecek koneksi...
+    </div>
+
+    <div class="result-card" id="resultCard"></div>
+  </div>
+
+  <script>
+    const REFERENCE_URLS = [
+      { label: 'Google DNS', url: 'https://dns.google' },
+      { label: 'Google', url: 'https://www.google.com' },
+      { label: 'Cloudflare', url: 'https://1.1.1.1' },
+      { label: 'Facebook', url: 'https://www.facebook.com' },
+    ];
+
+    const isFileProtocol = window.location.protocol === 'file:';
+
+    if (isFileProtocol) {
+      document.getElementById('fileWarning').classList.add('active');
+    }
+
+    function fillUrl(url) {
+      document.getElementById('urlInput').value = url;
+    }
+
+    function validateUrl(str) {
+      try {
+        const u = new URL(str);
+        return u.protocol === 'http:' || u.protocol === 'https:';
+      } catch {
+        return false;
+      }
+    }
+
+    function formatMs(ms) {
+      if (ms === null || ms === undefined) return '—';
+      if (ms < 1000) return Math.round(ms) + ' ms';
+      return (ms / 1000).toFixed(2) + ' s';
+    }
+
+    function statusBadge(target, analysis) {
+      if (!target) return '<span class="status-badge warn">⏳ Menunggu</span>';
+      if (target.connected && target.httpTimeMs > 3000) {
+        return '<span class="status-badge warn">⚠ Lambat (' + formatMs(target.httpTimeMs) + ')</span>';
+      }
+      return target.connected
+        ? `<span class="status-badge ok">✓ Terhubung (${formatMs(target.httpTimeMs)})</span>`
+        : `<span class="status-badge fail">✗ Gagal</span>`;
+    }
+
+    async function checkDns(hostname) {
+      const t0 = performance.now();
+
+      const providers = [
+        {
+          name: 'Google',
+          url: `https://dns.google/resolve?name=${encodeURIComponent(hostname)}&type=A`
+        },
+        {
+          name: 'Cloudflare',
+          url: `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=A`,
+          headers: { 'Accept': 'application/dns-json' }
+        }
+      ];
+
+      for (const provider of providers) {
+        try {
+          const opts = {};
+          if (provider.headers) opts.headers = provider.headers;
+          const res = await fetch(provider.url, opts);
+          const t1 = performance.now();
+          const data = await res.json();
+
+          let ips = [];
+          if (provider.name === 'Google') {
+            ips = (data.Answer || []).filter(a => a.type === 1).map(a => a.data);
+          } else {
+            ips = (data.Answer || []).filter(a => a.type === 1).map(a => a.data);
+          }
+
+          return {
+            resolved: ips.length > 0,
+            ips: ips,
+            timeMs: Math.round(t1 - t0),
+            provider: provider.name,
+            error: null
+          };
+        } catch (e) {
+          continue;
+        }
+      }
+
+      const t1 = performance.now();
+      return {
+        resolved: false,
+        ips: [],
+        timeMs: Math.round(t1 - t0),
+        error: 'DNS gagal (Google & Cloudflare tidak terjangkau)'
+      };
+    }
+
+    async function checkHttp(url) {
+      const t0 = performance.now();
+      const result = {
+        reachable: false,
+        httpStatus: null,
+        timeMs: null,
+        error: null,
+        errorType: null,
+        method: null
+      };
+
+      try {
+        const ctrl = new AbortController();
+        const timeout = setTimeout(() => ctrl.abort(), 10000);
+
+        const resp = await fetch(url, {
+          mode: 'no-cors',
+          signal: ctrl.signal,
+          redirect: 'follow',
+          cache: 'no-cache'
+        });
+
+        clearTimeout(timeout);
+        const t1 = performance.now();
+        result.timeMs = Math.round(t1 - t0);
+        result.reachable = true;
+        result.method = 'fetch';
+
+        if (resp.type === 'opaque') {
+          result.httpStatus = 'ok (opaque)';
+        } else if (resp.status) {
+          result.httpStatus = resp.status;
+          result.reachable = resp.status > 0 && resp.status < 500;
+        }
+      } catch (e) {
+        result.method = 'img-probe';
+        const imgResult = await probeWithImage(url, t0);
+        if (imgResult !== null) {
+          result.reachable = imgResult.reachable;
+          result.timeMs = imgResult.timeMs;
+          result.httpStatus = imgResult.reachable ? 'ok (img probe)' : null;
+          result.error = imgResult.reachable ? null : 'Server tidak merespon';
+        } else {
+          const t1 = performance.now();
+          result.timeMs = Math.round(t1 - t0);
+          result.error = e.message;
+
+          if (e.name === 'AbortError') {
+            result.errorType = 'timeout';
+            result.error = 'Koneksi timeout (10 detik)';
+          } else if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+            result.errorType = 'network';
+            result.error = 'Gagal menjangkau server (network error)';
+          } else {
+            result.errorType = 'unknown';
+          }
+        }
+      }
+
+      return result;
+    }
+
+    function probeWithImage(url, startTime) {
+      return new Promise((resolve) => {
+        const img = new Image();
+        const parsed = new URL(url);
+        const probeUrl = parsed.origin + '/favicon.ico';
+
+        const timeout = setTimeout(() => {
+          img.src = '';
+          resolve(null);
+        }, 8000);
+
+        img.onload = () => {
+          clearTimeout(timeout);
+          const t1 = performance.now();
+          resolve({ reachable: true, timeMs: Math.round(t1 - startTime) });
+        };
+
+        img.onerror = () => {
+          clearTimeout(timeout);
+          const t1 = performance.now();
+          resolve({ reachable: true, timeMs: Math.round(t1 - startTime) });
+        };
+
+        img.src = probeUrl + '?_t=' + Date.now();
+      });
+    }
+
+    async function checkUrl(url) {
+      const parsed = new URL(url);
+      const hostname = parsed.hostname;
+
+      const [dns, http] = await Promise.all([
+        checkDns(hostname),
+        checkHttp(url)
+      ]);
+
+      const connected = dns.resolved && http.reachable;
+
+      return {
+        url: url,
+        hostname: hostname,
+        connected: connected,
+        dns: dns,
+        http: http,
+        dnsTimeMs: dns.timeMs,
+        httpTimeMs: http.timeMs
+      };
+    }
+
+    function analyzeProblem(target, references) {
+      const allRefOk = references.every(r => r.connected);
+      const allRefFailed = references.every(r => !r.connected);
+      const anyRefOk = references.some(r => r.connected);
+      const someRefFailed = references.some(r => !r.connected);
+
+      let kesimpulan = '';
+      const rekomendasi = [];
+      let severity = 'fail';
+
+      // --- #10: TERHUBUNG TAPI LAMBAT ---
+      if (target.connected && target.httpTimeMs > 3000) {
+        severity = 'warn';
+        kesimpulan = 'Koneksi ke <strong>' + escapeHtml(target.hostname) + '</strong> berhasil tapi <strong>sangat lambat (' + formatMs(target.httpTimeMs) + ')</strong>. Server mungkin overload atau bandwidth terbatas.';
+        rekomendasi.push('Cek resource server (CPU, memory, disk I/O).');
+        rekomendasi.push('Cek bandwidth jaringan server, mungkin sedang ada traffic spike.');
+        rekomendasi.push('Jika menggunakan shared hosting, pertimbangkan upgrade ke VPS/dedicated.');
+        rekomendasi.push('Aktifkan caching (CDN, Redis, page cache) di server.');
+        rekomendasi.push('Cek apakah ada query database yang lambat atau script berat.');
+        if (allRefOk) {
+          rekomendasi.push('Koneksi internet kamu normal (referensi semua ok), jadi masalah ada di server target.');
+        }
+        return { kesimpulan, rekomendasi, severity };
+      }
+
+      // --- #1: TERHUBUNG NORMAL ---
+      if (target.connected) {
+        const speedNote = someRefFailed
+          ? ' Namun beberapa situs referensi gagal — ini tidak memengaruhi targetmu, tapi mungkin ada pembatasan parsial di jaringan kamu.'
+          : '';
+        return {
+          kesimpulan: 'Koneksi ke <strong>' + escapeHtml(target.hostname) + '</strong> berhasil (' + formatMs(target.httpTimeMs) + '). Tidak ada masalah yang terdeteksi.' + speedNote,
+          rekomendasi: [],
+          severity: 'ok'
+        };
+      }
+
+      // --- #2: SEMUA GAGAL — INTERNET MATI ---
+      if (allRefFailed && target.dns && !target.dns.resolved && references.every(r => r.dns && !r.dns.resolved)) {
+        severity = 'fail';
+        kesimpulan = 'Tidak ada koneksi internet atau DNS tidak berfungsi di perangkat ini. <strong>Semua URL gagal di-resolve.</strong>';
+        rekomendasi.push('Pastikan terhubung ke internet (WiFi / LAN).');
+        rekomendasi.push('Cek indikator WiFi/ethernet di taskbar/menu bar.');
+        rekomendasi.push('Cek pengaturan DNS. Coba ganti ke DNS publik: 8.8.8.8 (Google) atau 1.1.1.1 (Cloudflare).');
+        rekomendasi.push('Restart router/modem jika menggunakan WiFi.');
+        return { kesimpulan, rekomendasi, severity };
+      }
+
+      // --- #3: SEMUA GAGAL — FIREWALL/PROXY ---
+      if (allRefFailed) {
+        severity = 'fail';
+        kesimpulan = 'Perangkat tidak bisa menjangkau <strong>semua URL eksternal</strong>. Kemungkinan firewall atau proxy jaringan memblokir koneksi keluar.';
+        rekomendasi.push('Cek firewall di laptop: Windows Defender Firewall / macOS Firewall. Pastikan browser diizinkan akses keluar.');
+        rekomendasi.push('Jika di jaringan kantor/kampus, tanyakan ke tim IT — mungkin ada proxy atau firewall yang memblokir akses keluar.');
+        rekomendasi.push('Coba nonaktifkan sementara firewall untuk testing (lalu nyalakan kembali).');
+        rekomendasi.push('Cek apakah ada VPN yang mengganggu routing.');
+        rekomendasi.push('Konfigurasikan proxy di pengaturan sistem jika jaringan mewajibkan.');
+        return { kesimpulan, rekomendasi, severity };
+      }
+
+      // --- #4: DNS TARGET GAGAL ---
+      if (!target.dns.resolved) {
+        severity = 'fail';
+        kesimpulan = 'DNS gagal menerjemahkan domain <strong>"' + escapeHtml(target.hostname) + '"</strong>. Domain mungkin tidak terdaftar, expired, atau ada masalah DNS sementara.';
+        rekomendasi.push('Cek apakah domain "' + target.hostname + '" aktif di registrar (cek whois).');
+        rekomendasi.push('Cek apakah nameserver domain dikonfigurasi dengan benar.');
+        rekomendasi.push('Coba flush DNS: <code>ipconfig /flushdns</code> (Windows) atau <code>sudo dscacheutil -flushcache</code> (macOS).');
+        rekomendasi.push('Coba gunakan DNS publik (8.8.8.8 / 1.1.1.1) lalu ulangi.');
+        if (anyRefOk) {
+          rekomendasi.push('Referensi lain berhasil di-resolve, jadi masalah spesifik di domain ' + target.hostname + ', bukan internet kamu.');
+        }
+        return { kesimpulan, rekomendasi, severity };
+      }
+
+      // --- #8: DNS OK TAPI HTTP GAGAL (SERVER/APP DOWN) ---
+      if (target.dns.resolved && !target.http.reachable) {
+        const ipInfo = target.dns.ips.length > 0 ? ' (IP: ' + target.dns.ips.slice(0, 2).join(', ') + ')' : '';
+        if (target.http.errorType === 'timeout') {
+          severity = 'warn';
+          kesimpulan = 'DNS berhasil resolve — domain <strong>"' + escapeHtml(target.hostname) + '"</strong> aktif' + ipInfo + ' — tapi <strong>server tidak merespon (timeout 10 detik)</strong>. Kemungkinan server down, overload, atau port diblokir firewall.';
+          rekomendasi.push('Cek apakah server target menyala dan service/aplikasi web berjalan.');
+          rekomendasi.push('Coba ping ke ' + target.hostname + ' dari terminal. Jika ping berhasil tapi HTTP timeout, berarti server hidup tapi web server (nginx/apache) mati.');
+          rekomendasi.push('Cek firewall server — pastikan port 80 dan 443 terbuka.');
+          rekomendasi.push('Cek resource server (CPU/memory/disk), mungkin overload hingga tidak merespon.');
+          rekomendasi.push('Cek apakah ada firewall jaringan ISP/antara yang memblokir port spesifik.');
+        } else {
+          severity = 'fail';
+          kesimpulan = 'DNS berhasil resolve — domain <strong>"' + escapeHtml(target.hostname) + '"</strong> aktif' + ipInfo + ' — tapi <strong>server tidak bisa dijangkau</strong>. Server mungkin down, web server mati, atau port diblokir.';
+          rekomendasi.push('Cek apakah service (nginx/apache/node) di server berjalan: <code>systemctl status nginx</code> atau <code>pm2 list</code>.');
+          rekomendasi.push('Cek apakah web server listening di port yang benar: <code>ss -tlnp | grep -E ":80|:443"</code>.');
+          rekomendasi.push('Cek log error server: <code>tail -f /var/log/nginx/error.log</code>.');
+          rekomendasi.push('Jika pakai Cloudflare/reverse proxy, cek apakah origin server bisa dijangkau dari proxy.');
+          rekomendasi.push('Restart web server: <code>systemctl restart nginx</code> atau <code>pm2 restart app</code>.');
+        }
+        if (allRefOk) {
+          rekomendasi.push('Semua situs referensi normal, jadi masalah murni di sisi server target, bukan jaringan kamu.');
+        }
+        return { kesimpulan, rekomendasi, severity };
+      }
+
+      // --- #9: REFERENSI SEBAGIAN GAGAL (PEMBLOKIRAN PARSIAL) ---
+      if (someRefFailed && !allRefFailed && target.dns.resolved) {
+        const failedRefs = references.filter(r => !r.connected).map(r => r.hostname).join(', ');
+        severity = 'warn';
+        kesimpulan = 'Beberapa situs referensi <strong>gagal dijangkau (' + failedRefs + ')</strong> sementara yang lain berhasil. Kemungkinan ada pemblokiran parsial oleh ISP atau firewall jaringan.';
+        rekomendasi.push('ISP atau firewall jaringan mungkin memblokir kategori situs tertentu (sosial media, DNS, dll).');
+        rekomendasi.push('Cek apakah menggunakan DNS ISP yang melakukan pemblokiran. Ganti ke DNS publik (8.8.8.8 / 1.1.1.1).');
+        rekomendasi.push('Jika target URL kamu sendiri gagal, periksa apakah server/IP target masuk daftar blokir.');
+        rekomendasi.push('Coba akses via VPN untuk bypass pemblokiran ISP.');
+        return { kesimpulan, rekomendasi, severity };
+      }
+
+      // --- #6: NETWORK ERROR SPESIFIK ---
+      if (target.http.errorType === 'network') {
+        severity = 'fail';
+        kesimpulan = 'Tidak bisa terkoneksi ke <strong>"' + escapeHtml(target.hostname) + '"</strong>. Server mungkin down, port tidak terbuka, atau CORS/security policy memblokir.';
+        rekomendasi.push('Cek apakah service di server target berjalan.');
+        rekomendasi.push('Pastikan firewall server mengizinkan koneksi masuk.');
+        rekomendasi.push('Jika website, cek konfigurasi CORS dan Content Security Policy (CSP).');
+        rekomendasi.push('Cek apakah server menggunakan HTTPS dengan sertifikat valid.');
+        rekomendasi.push('Coba akses via browser dalam mode incognito (tanpa ekstensi).');
+        return { kesimpulan, rekomendasi, severity };
+      }
+
+      // --- #7: CATCH-ALL ---
+      severity = 'warn';
+      kesimpulan = 'Gagal menjangkau <strong>"' + escapeHtml(target.hostname) + '"</strong> tanpa indikasi spesifik. Mungkin masalah jaringan sementara.';
+      rekomendasi.push('Coba muat ulang halaman dan ulangi pengecekan.');
+      rekomendasi.push('Cek koneksi internet kamu.');
+      rekomendasi.push('Coba akses URL langsung dari tab browser baru.');
+      if (anyRefOk) {
+        rekomendasi.push('Beberapa situs referensi berhasil, jadi koneksi internet kamu seharusnya normal. Masalah lebih ke target spesifik.');
+      }
+      return { kesimpulan, rekomendasi, severity };
+    }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function renderResult(target, refResults, refUrls) {
+      const analysis = analyzeProblem(target, refResults);
+      const severityColor = {
+        ok: 'var(--green)',
+        warn: 'var(--yellow)',
+        fail: 'var(--red)'
+      }[analysis.severity];
+
+      let refHtml = '';
+      for (const ref of refUrls) {
+        const result = refResults.find(r => r.url === ref.url);
+        const ok = result ? result.connected : null;
+        const statusClass = ok === null ? 'warn' : (ok ? 'ok' : 'fail');
+        const statusText = ok === null ? '⏳' : (ok ? '✓ Terhubung' : '✗ Gagal');
+        const timeText = result ? formatMs(result.httpTimeMs) : '—';
+        const dnsText = result && result.dns.resolved
+          ? result.dns.ips.slice(0, 2).join(', ')
+          : '—';
+
+        refHtml += `
+          <div class="ref-item">
+            <div class="ref-label">${escapeHtml(ref.label)}</div>
+            <div class="ref-icon" style="color:var(--${statusClass === 'ok' ? 'green' : statusClass === 'fail' ? 'red' : 'yellow'})">${statusText}</div>
+            <div class="ref-time">${timeText}</div>
+            <div class="ref-time" style="font-family:monospace;font-size:0.7rem;word-break:break-all">${escapeHtml(dnsText)}</div>
+          </div>`;
+      }
+
+      const dt = target.dns;
+      const ht = target.http;
+
+      let rekomendasiHtml = '';
+      if (analysis.rekomendasi.length > 0) {
+        rekomendasiHtml = '<ul class="rekomendasi-list">' +
+          analysis.rekomendasi.map(r => '<li>' + r + '</li>').join('') +
+          '</ul>';
+      }
+
+      return `
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+          <h2 style="font-size:1.2rem;font-weight:600;word-break:break-all">${escapeHtml(target.url)}</h2>
+          ${statusBadge(target, analysis)}
+        </div>
+
+        <div style="margin-top:16px">
+          <span class="section-title">Detail Target</span>
+        </div>
+
+        <div class="result-row"><span class="result-label">Hostname</span><span class="result-value">${escapeHtml(target.hostname)}</span></div>
+        <div class="result-row">
+          <span class="result-label">DNS Resolution</span>
+          <span class="result-value">${dt.resolved
+            ? '<span style="color:var(--green)">✓ </span>' + dt.ips.slice(0, 3).join(', ') + (dt.ips.length > 3 ? ' +' + (dt.ips.length - 3) : '') + (dt.provider ? ' <span style="color:var(--muted);font-size:0.8rem">via ' + escapeHtml(dt.provider) + '</span>' : '')
+            : '<span style="color:var(--red)">✗ Gagal</span>' + (dt.error ? ' — ' + escapeHtml(dt.error) : '')}</span>
+        </div>
+        <div class="result-row"><span class="result-label">DNS Time</span><span class="result-value">${formatMs(dt.timeMs)}</span></div>
+        <div class="result-row">
+          <span class="result-label">HTTP Reachability</span>
+          <span class="result-value">${ht.reachable
+            ? '<span style="color:var(--green)">✓ Terjangkau</span>' + (ht.method ? ' <span style="color:var(--muted);font-size:0.8rem">(' + escapeHtml(ht.method) + ')</span>' : '')
+            : '<span style="color:var(--red)">✗ Gagal</span>'}</span>
+        </div>
+        <div class="result-row"><span class="result-label">HTTP Status</span><span class="result-value">${ht.httpStatus || '—'}</span></div>
+        <div class="result-row"><span class="result-label">HTTP Response Time</span><span class="result-value" style="${target.httpTimeMs > 3000 ? 'color:var(--orange);font-weight:700' : ''}">${formatMs(ht.httpTimeMs)}</span></div>
+        <div class="result-row"><span class="result-label">Error</span><span class="result-value">${ht.error ? '<span style="color:var(--red)">' + escapeHtml(ht.error) + '</span>' : '<span style="color:var(--green)">Tidak ada</span>'}</span></div>
+
+        <div style="margin-top:24px">
+          <span class="section-title">Situs Referensi</span>
+        </div>
+        <div class="ref-grid">${refHtml}</div>
+
+        <div class="analysis-card" style="margin-top:24px;border-left:3px solid ${severityColor}">
+          <h3 style="color:${severityColor}">📋 Analisis</h3>
+          <div class="kesimpulan" style="border-left-color:${severityColor}">${analysis.kesimpulan}</div>
+          ${rekomendasiHtml}
+        </div>
+      `;
+    }
+
+    async function runCheck() {
+      const input = document.getElementById('urlInput');
+      const resultCard = document.getElementById('resultCard');
+      const loading = document.getElementById('loading');
+      const btn = document.getElementById('checkBtn');
+
+      const raw = input.value.trim();
+      if (!raw) {
+        alert('Mohon masukkan URL terlebih dahulu.');
+        return;
+      }
+
+      let url = raw;
+      if (!/^https?:\/\//i.test(url)) {
+        url = 'https://' + url;
+      }
+
+      if (!validateUrl(url)) {
+        alert('Format URL tidak valid. Contoh: https://contoh.com');
+        return;
+      }
+
+      btn.disabled = true;
+      resultCard.classList.remove('active');
+      resultCard.innerHTML = '';
+      loading.classList.add('active');
+
+      try {
+        const target = await checkUrl(url);
+
+        const refResults = [];
+        for (const ref of REFERENCE_URLS) {
+          if (ref.url === url) continue;
+          refResults.push(await checkUrl(ref.url));
+        }
+
+        resultCard.innerHTML = renderResult(target, refResults, REFERENCE_URLS);
+        resultCard.classList.add('active');
+      } catch (e) {
+        resultCard.innerHTML = '<div style="color:var(--red);padding:16px">Error: ' + escapeHtml(e.message) + '</div>';
+        resultCard.classList.add('active');
+      } finally {
+        loading.classList.remove('active');
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById('urlInput').addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') runCheck();
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    const urlParam = params.get('url');
+    if (urlParam) {
+      document.getElementById('urlInput').value = urlParam;
+      runCheck();
+    }
+  </script>
+</body>
+
+</html>
