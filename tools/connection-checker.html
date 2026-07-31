@@ -485,14 +485,20 @@
 
       const providers = [
         {
-          name: 'Google',
-          url: `https://dns.google/resolve?name=${encodeURIComponent(hostname)}&type=A`
+          name: 'Quad9',
+          url: `https://dns.quad9.net:5053/dns-query?name=${encodeURIComponent(hostname)}&type=A`,
+          headers: { 'Accept': 'application/dns-json' }
         },
         {
           name: 'Cloudflare',
-          url: `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(hostname)}&type=A`,
+          url: `https://one.one.one.one/dns-query?name=${encodeURIComponent(hostname)}&type=A`,
           headers: { 'Accept': 'application/dns-json' }
-        }
+        },
+        {
+          name: 'NextDNS',
+          url: `https://doh.dns.sb/dns-query?name=${encodeURIComponent(hostname)}&type=A`,
+          headers: { 'Accept': 'application/dns-json' }
+        },
       ];
 
       for (const provider of providers) {
@@ -527,7 +533,7 @@
         resolved: false,
         ips: [],
         timeMs: Math.round(t1 - t0),
-        error: 'DNS gagal (Google & Cloudflare tidak terjangkau)'
+        error: 'DNS info tidak tersedia (semua DoH endpoint gagal — mungkin ISP memblokir)'
       };
     }
 
@@ -629,7 +635,7 @@
         checkHttp(url)
       ]);
 
-      const connected = dns.resolved && http.reachable;
+      const connected = http.reachable;
 
       return {
         url: url,
