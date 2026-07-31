@@ -688,14 +688,11 @@
 
       // --- #1: TERHUBUNG NORMAL ---
       if (target.connected) {
-        const dnsNote = !target.dns.resolved
-          ? ' (info DNS tidak tersedia — DoH diblokir ISP, tapi koneksi normal)'
-          : '';
         const speedNote = someRefFailed
           ? ' Namun beberapa situs referensi gagal — ini tidak memengaruhi targetmu, tapi mungkin ada pembatasan parsial di jaringan kamu.'
           : '';
         return {
-          kesimpulan: 'Koneksi ke <strong>' + escapeHtml(target.hostname) + '</strong> berhasil (' + formatMs(target.httpTimeMs) + '). Tidak ada masalah yang terdeteksi.' + dnsNote + speedNote,
+          kesimpulan: 'Koneksi ke <strong>' + escapeHtml(target.hostname) + '</strong> berhasil (' + formatMs(target.httpTimeMs) + '). Tidak ada masalah yang terdeteksi.' + speedNote,
           rekomendasi: [],
           severity: 'ok'
         };
