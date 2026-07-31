@@ -855,13 +855,13 @@
         </div>
 
         <div class="result-row"><span class="result-label">Hostname</span><span class="result-value">${escapeHtml(target.hostname)}</span></div>
+        ${dt.resolved ? `
         <div class="result-row">
           <span class="result-label">DNS Resolution</span>
-          <span class="result-value">${dt.resolved
-            ? '<span style="color:var(--green)">✓ </span>' + dt.ips.slice(0, 3).join(', ') + (dt.ips.length > 3 ? ' +' + (dt.ips.length - 3) : '') + (dt.provider ? ' <span style="color:var(--muted);font-size:0.8rem">via ' + escapeHtml(dt.provider) + '</span>' : '')
-            : '<span style="color:var(--red)">✗ Gagal</span>' + (dt.error ? ' — ' + escapeHtml(dt.error) : '')}</span>
+          <span class="result-value"><span style="color:var(--green)">✓ </span>${dt.ips.slice(0, 3).join(', ')}${dt.ips.length > 3 ? ' +' + (dt.ips.length - 3) : ''}${dt.provider ? ' <span style="color:var(--muted);font-size:0.8rem">via ' + escapeHtml(dt.provider) + '</span>' : ''}</span>
         </div>
         <div class="result-row"><span class="result-label">DNS Time</span><span class="result-value">${formatMs(dt.timeMs)}</span></div>
+        ` : ''}
         <div class="result-row">
           <span class="result-label">HTTP Reachability</span>
           <span class="result-value">${ht.reachable
