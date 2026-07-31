@@ -673,6 +673,20 @@
         return { kesimpulan, rekomendasi, severity };
       }
 
+      // --- #11: TERHUBUNG TAPI DNS DoH GAGAL (info DNS tidak tersedia) ---
+      if (target.connected && !target.dns.resolved) {
+        severity = 'warn';
+        kesimpulan = 'Koneksi ke <strong>' + escapeHtml(target.hostname) + '</strong> berhasil dijangkau oleh browser (' + formatMs(target.httpTimeMs) + '), <strong>tapi info DNS tidak tersedia</strong> — semua endpoint DNS-over-HTTPS diblokir ISP.';
+        if (target.http.method === 'img-probe') {
+          kesimpulan += ' Koneksi terdeteksi hanya lewat img-probe (favicon), bukan fetch langsung — artinya browser berhasil resolve domain, tapi akses penuh mungkin tetap terhambat.';
+        }
+        rekomendasi.push('Browser kamu mungkin pakai Secure DNS (DoH) bawaan yang resolve domain via jalur berbeda dari DNS sistem.');
+        rekomendasi.push('Coba buka URL target langsung di address bar browser. Kalau muncul "DNS_PROBE_POSSIBLE", berarti DNS ISP kamu yang memblokir — ganti DNS sistem ke 8.8.8.8 atau 1.1.1.1.');
+        rekomendasi.push('Cek pengaturan browser: chrome://settings/security → "Use secure DNS" — nonaktifkan sementara untuk tes.');
+        rekomendasi.push('Hasil tool ini mungkin berbeda dari pengalaman browsing kamu karena browser pakai DNS resolver internal.');
+        return { kesimpulan, rekomendasi, severity };
+      }
+
       // --- #1: TERHUBUNG NORMAL ---
       if (target.connected) {
         const speedNote = someRefFailed
