@@ -315,31 +315,38 @@
       </div>
       <div class="row justify-content-center mt-4">
         <div class="col-lg-8">
-          <form method="POST" action="https://formspree.io/f/xaypoaag" name="sentMessage" novalidate>
+          <form id="contact-form" method="POST" action="https://formspree.io/f/xaypoaag" novalidate>
             <div class="mb-3 reveal">
               <label class="form-label" for="name">Name</label>
               <input class="form-control" id="name" name="name" type="text" placeholder="Your Name" required
-                data-validation-required-message="Please enter your name." />
+                data-fs-field />
+              <span class="text-danger small" data-fs-error="name"></span>
             </div>
             <div class="mb-3 reveal">
               <label class="form-label" for="email">Email Address</label>
-              <input class="form-control" id="email" name="_replyto" type="email" placeholder="Your Email" required
-                data-validation-required-message="Please enter your email address." />
+              <input class="form-control" id="email" name="email" type="email" placeholder="Your Email" required
+                data-fs-field />
+              <span class="text-danger small" data-fs-error="email"></span>
             </div>
             <div class="mb-3 reveal">
               <label class="form-label" for="phone">Phone Number</label>
-              <input class="form-control" id="phone" name="phone" type="tel" placeholder="Your Phone Number" required
-                data-validation-required-message="Please enter your phone number." />
+              <input class="form-control" id="phone" name="phone" type="tel" placeholder="Your Phone Number"
+                data-fs-field />
+              <span class="text-danger small" data-fs-error="phone"></span>
             </div>
-            <input type="hidden" name="_next" value="https://ahsai.my.id/index.html?thanks=true" />
+            <div id="success" class="mb-3" data-fs-success style="display:none;">
+              <div class="alert alert-success rounded-pill text-center">
+                <i class="fas fa-check-circle me-2"></i> Thanks! Your message has been sent.
+              </div>
+            </div>
             <div class="mb-4 reveal">
               <label class="form-label" for="message">Message</label>
               <textarea class="form-control" id="message" name="message" rows="5" placeholder="Your Message" required
-                data-validation-required-message="Please enter a message."></textarea>
+                data-fs-field></textarea>
+              <span class="text-danger small" data-fs-error="message"></span>
             </div>
-            <div id="success" class="mb-3"></div>
             <div class="text-center reveal">
-              <button class="btn btn-primary btn-lg px-5" id="sendMessageButton" type="submit">
+              <button class="btn btn-primary btn-lg px-5" id="sendMessageButton" type="submit" data-fs-submit-btn>
                 <i class="fas fa-paper-plane me-2"></i>Send Message
               </button>
             </div>
@@ -783,20 +790,15 @@
         });
       });
 
-      // Form submit handling
-      const form = document.querySelector('form[name="sentMessage"]');
-      if (form) {
-        form.addEventListener('submit', function (e) {
-          const btn = document.getElementById('sendMessageButton');
-          btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Sending...';
-          btn.disabled = true;
-        });
-      }
+      // Formspree AJAX init
+      window.formspree = window.formspree || function () { (formspree.q = formspree.q || []).push(arguments); };
+      formspree('initForm', { formElement: '#contact-form', formId: 'xaypoaag' });
 
       // Copyright year
       document.getElementById('year').textContent = new Date().getFullYear();
     })();
   </script>
+  <script src="https://unpkg.com/@formspree/ajax@1" defer></script>
 </body>
 
 </html>
