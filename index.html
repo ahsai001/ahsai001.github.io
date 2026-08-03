@@ -315,38 +315,25 @@
       </div>
       <div class="row justify-content-center mt-4">
         <div class="col-lg-8">
-          <form id="contact-form" method="POST" action="https://formspree.io/f/xaypoaag" novalidate>
+          <form id="contact-form" method="POST" action="https://formspree.io/f/xaypoaag">
             <div class="mb-3 reveal">
               <label class="form-label" for="name">Name</label>
-              <input class="form-control" id="name" name="name" type="text" placeholder="Your Name" required
-                data-fs-field />
-              <span class="text-danger small" data-fs-error="name"></span>
+              <input class="form-control" id="name" name="name" type="text" placeholder="Your Name" required />
             </div>
             <div class="mb-3 reveal">
               <label class="form-label" for="email">Email Address</label>
-              <input class="form-control" id="email" name="email" type="email" placeholder="Your Email" required
-                data-fs-field />
-              <span class="text-danger small" data-fs-error="email"></span>
+              <input class="form-control" id="email" name="email" type="email" placeholder="Your Email" required />
             </div>
             <div class="mb-3 reveal">
               <label class="form-label" for="phone">Phone Number</label>
-              <input class="form-control" id="phone" name="phone" type="tel" placeholder="Your Phone Number"
-                data-fs-field />
-              <span class="text-danger small" data-fs-error="phone"></span>
-            </div>
-            <div id="success" class="mb-3" data-fs-success style="display:none;">
-              <div class="alert alert-success rounded-pill text-center">
-                <i class="fas fa-check-circle me-2"></i> Thanks! Your message has been sent.
-              </div>
+              <input class="form-control" id="phone" name="phone" type="tel" placeholder="Your Phone Number" />
             </div>
             <div class="mb-4 reveal">
               <label class="form-label" for="message">Message</label>
-              <textarea class="form-control" id="message" name="message" rows="5" placeholder="Your Message" required
-                data-fs-field></textarea>
-              <span class="text-danger small" data-fs-error="message"></span>
+              <textarea class="form-control" id="message" name="message" rows="5" placeholder="Your Message" required></textarea>
             </div>
             <div class="text-center reveal">
-              <button class="btn btn-primary btn-lg px-5" id="sendMessageButton" type="submit" data-fs-submit-btn>
+              <button class="btn btn-primary btn-lg px-5" id="sendMessageButton" type="submit">
                 <i class="fas fa-paper-plane me-2"></i>Send Message
               </button>
             </div>
@@ -790,15 +777,10 @@
         });
       });
 
-      // Formspree AJAX init
-      window.formspree = window.formspree || function () { (formspree.q = formspree.q || []).push(arguments); };
-      formspree('initForm', { formElement: '#contact-form', formId: 'xaypoaag' });
-
       // Copyright year
       document.getElementById('year').textContent = new Date().getFullYear();
     })();
   </script>
-  <script src="https://unpkg.com/@formspree/ajax@1" defer></script>
 </body>
 
 </html>
