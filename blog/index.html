@@ -1,0 +1,95 @@
+---
+layout: default
+title: Blog
+permalink: /blog/
+---
+
+<!-- BLOG HEADER -->
+<header class="blog-header">
+  <div class="container">
+    <h1 class="text-white mb-2">Blog</h1>
+    <div class="divider divider-light">
+      <div class="divider-line"></div>
+      <i class="fas fa-pen-fancy"></i>
+      <div class="divider-line"></div>
+    </div>
+    <p class="text-white-50 mb-0">Thoughts on code, finance, and life.</p>
+  </div>
+</header>
+
+<!-- BLOG POSTS -->
+<section class="section">
+  <div class="container">
+    <div class="row g-4">
+      {% for post in paginator.posts %}
+        <div class="col-md-6 col-lg-4 reveal">
+          <article class="blog-card">
+            <span class="post-date">
+              <i class="far fa-calendar me-1"></i> {{ post.date | date: "%b %d, %Y" }}
+            </span>
+            <h2><a href="{{ post.url }}">{{ post.title }}</a></h2>
+            <p class="post-excerpt">
+              {% if post.excerpt %}
+                {{ post.excerpt | strip_html | truncatewords: 25 }}
+              {% endif %}
+            </p>
+            {% if post.tags %}
+              <div>
+                {% for tag in post.tags limit:3 %}
+                  <span class="tag">{{ tag }}</span>
+                {% endfor %}
+              </div>
+            {% endif %}
+            <a href="{{ post.url }}" class="read-more">
+              Read More <i class="fas fa-arrow-right"></i>
+            </a>
+          </article>
+        </div>
+      {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if paginator.total_pages > 1 %}
+    <nav class="mt-5" aria-label="Blog pagination">
+      <ul class="pagination">
+        {% if paginator.previous_page %}
+          <li class="page-item">
+            <a class="page-link" href="{{ paginator.previous_page_path }}"><i class="fas fa-chevron-left"></i></a>
+          </li>
+        {% endif %}
+
+        {% for page in (1..paginator.total_pages) %}
+          <li class="page-item {% if page == paginator.page %}active{% endif %}">
+            <a class="page-link" href="{% if page == 1 %}/blog/{% else %}/blog/page{{ page }}/{% endif %}">{{ page }}</a>
+          </li>
+        {% endfor %}
+
+        {% if paginator.next_page %}
+          <li class="page-item">
+            <a class="page-link" href="{{ paginator.next_page_path }}"><i class="fas fa-chevron-right"></i></a>
+          </li>
+        {% endif %}
+      </ul>
+    </nav>
+    {% endif %}
+
+    <!-- RSS Feed -->
+    <div class="text-center mt-4">
+      <a href="/feed.xml" class="btn-outline" target="_blank">
+        <i class="fas fa-rss me-2"></i> RSS Feed
+      </a>
+    </div>
+  </div>
+</section>
+
+<script>
+  // Scroll reveal for blog cards
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('show');
+      }
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>

@@ -1,0 +1,23 @@
+title: Ahmad Saifullah
+description: Portfolio & Blog — Software Developer, Trainer, Moslem Preneur, Urban Farmer
+url: "https://ahsai.my.id"
+plugins:
+  - jekyll-feed
+  - jekyll-seo-tag
+  - jekyll-sitemap
+permalink: /blog/:year/:month/:day/:title/
+paginate: 6
+paginate_path: "/blog/page:num/"
+feed:
+  path: /feed.xml
+defaults:
+  - scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: post
+  - scope:
+      path: ""
+      type: "pages"
+    values:
+      layout: default

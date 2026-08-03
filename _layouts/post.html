@@ -1,0 +1,43 @@
+---
+layout: default
+---
+<!-- BLOG HEADER -->
+<header class="blog-header">
+  <div class="container">
+    <h1 class="text-white mb-2">{{ page.title }}</h1>
+    <div class="divider divider-light">
+      <div class="divider-line"></div>
+      <i class="fas fa-star"></i>
+      <div class="divider-line"></div>
+    </div>
+    <p class="text-white-50 mb-0">
+      <i class="far fa-calendar me-1"></i> {{ page.date | date: "%B %d, %Y" }}
+      {% if page.tags %}
+        &nbsp;&middot;&nbsp;
+        {% for tag in page.tags %}
+          <span class="tag">{{ tag }}</span>
+        {% endfor %}
+      {% endif %}
+    </p>
+  </div>
+</header>
+
+<!-- POST CONTENT -->
+<section class="section">
+  <div class="container">
+    <a href="/blog/" class="back-to-blog"><i class="fas fa-arrow-left"></i> Back to Blog</a>
+
+    <article class="post-content">
+      {{ content }}
+    </article>
+
+    <div class="post-meta text-center">
+      <p>
+        <i class="far fa-clock me-1"></i>
+        {{ page.date | date: "%B %d, %Y" }}
+        &nbsp;&middot;&nbsp;
+        <i class="fas fa-user me-1"></i> Ahmad Saifullah
+      </p>
+    </div>
+  </div>
+</section>
