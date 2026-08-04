@@ -145,7 +145,7 @@ Karena ini masih artikel perkenalan, latihanmu ringan aja:
 
 Besok kita bakal **install Flutter SDK & setup IDE** — dari nol sampai project pertama berhasil jalan di emulator. Pastikan laptopmu siap: RAM minimal 8GB, storage kosong ~20GB.
 
-> 🚀 Coba sendiri, kalau stuck tanya di kolom komentar! Jangan malu — semua developer hebat dulunya juga bingung pas awal.
+> 🚀 Coba sendiri, share hasilnya ke sosial media! Tag @ahsai001 — siapa tahu ada yang mau belajar bareng.
 
 ---
 
