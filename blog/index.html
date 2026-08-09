@@ -21,7 +21,7 @@ permalink: /blog/
 <section class="section">
   <div class="container">
     <div class="row g-4">
-      {% for post in paginator.posts %}
+      {% for post in site.posts %}
         <div class="col-md-6 col-lg-4 reveal">
           <article class="blog-card">
             <span class="post-date">
@@ -48,31 +48,6 @@ permalink: /blog/
       {% endfor %}
     </div>
 
-    <!-- Pagination -->
-    {% if paginator.total_pages > 1 %}
-    <nav class="mt-5" aria-label="Blog pagination">
-      <ul class="pagination">
-        {% if paginator.previous_page %}
-          <li class="page-item">
-            <a class="page-link" href="{{ paginator.previous_page_path }}"><i class="fas fa-chevron-left"></i></a>
-          </li>
-        {% endif %}
-
-        {% for page in (1..paginator.total_pages) %}
-          <li class="page-item {% if page == paginator.page %}active{% endif %}">
-            <a class="page-link" href="{% if page == 1 %}/blog/{% else %}/blog/page{{ page }}/{% endif %}">{{ page }}</a>
-          </li>
-        {% endfor %}
-
-        {% if paginator.next_page %}
-          <li class="page-item">
-            <a class="page-link" href="{{ paginator.next_page_path }}"><i class="fas fa-chevron-right"></i></a>
-          </li>
-        {% endif %}
-      </ul>
-    </nav>
-    {% endif %}
-
     <!-- RSS Feed -->
     <div class="text-center mt-4">
       <a href="/feed.xml" class="btn-outline" target="_blank">
@@ -83,12 +58,10 @@ permalink: /blog/
 </section>
 
 <script>
-  // Scroll reveal for blog cards
+  // Scroll reveal
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
-      if (entry.isIntersecting) {
-        entry.target.classList.add('show');
-      }
+      if (entry.isIntersecting) entry.target.classList.add('show');
     });
   }, { threshold: 0.1 });
   document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
