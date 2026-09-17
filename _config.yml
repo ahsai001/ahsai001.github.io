@@ -6,6 +6,9 @@ plugins:
   - jekyll-seo-tag
   - jekyll-sitemap
 permalink: /blog/:year/:month/:day/:title/
+# Cron menulis artikel bertanggal 07:00 +0700, sementara push terjadi ~06:00 +0700.
+# Tanpa future: true, Jekyll mengecualikan post bertanggal masa depan dari build.
+future: true
 feed:
   path: /feed.xml
 defaults:
