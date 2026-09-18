@@ -1,0 +1,21 @@
+<!--
+  Navigasi kategori blog — SATU-SATUNYA tempat daftar kategori dirawat.
+  Dipakai oleh: blog/index.html dan setiap halaman blog/categories/<slug>/.
+
+  Menambah kategori baru = 2 langkah:
+    1. Tambahkan satu <li> di bawah ini.
+    2. Buat halaman blog/categories/<slug>/index.html (salin halaman yang ada,
+       ganti nilai permalink, judul, ikon, dan tag yang difilter).
+
+  Catatan: daftar ini SENGAJA ditulis manual, bukan iterasi seluruh site.tags.
+  Iterasi tersebut menghasilkan link ke semua tag (flutter, dart, tutorial,
+  investasi, pemrograman, ...) padahal halaman kategorinya tidak ada => 404.
+-->
+<aside class="blog-categories">
+  <h3><i class="fas fa-folder-open me-2"></i>Kategori</h3>
+  <ul class="category-list">
+    <li><a href="/blog/categories/support/">Support</a></li>
+    <li><a href="/blog/categories/flutter/">Flutter</a></li>
+    <li><a href="/blog/archive/">Semua Artikel</a></li>
+  </ul>
+</aside>

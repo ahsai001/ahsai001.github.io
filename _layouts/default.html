@@ -210,6 +210,51 @@
       transition: color var(--transition);
     }
     .back-to-blog:hover { color: var(--color-accent); }
+
+    /* Navigasi kategori blog — dipakai _includes/category-nav.html */
+    .blog-categories {
+      max-width: 1140px;
+      margin: 2rem auto 0;
+      padding: 1.25rem 1.5rem;
+      background: var(--color-surface);
+      border: 1px solid rgba(255, 255, 255, .06);
+      border-radius: var(--radius-md);
+    }
+    .blog-categories h3 {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: var(--color-text-muted);
+      margin: 0 0 0.85rem;
+      font-weight: 600;
+    }
+    .category-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+    .category-list a {
+      display: inline-block;
+      padding: 0.4rem 0.95rem;
+      background: rgba(99, 102, 241, .12);
+      border: 1px solid rgba(99, 102, 241, .25);
+      border-radius: 999px;
+      color: var(--color-text);
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: all var(--transition);
+    }
+    .category-list a:hover {
+      background: var(--gradient-primary);
+      border-color: transparent;
+      color: #fff;
+    }
+    @media (max-width: 1200px) {
+      .blog-categories { margin-left: 1rem; margin-right: 1rem; }
+    }
   </style>
 </head>
 <body>

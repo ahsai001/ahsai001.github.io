@@ -1,0 +1,76 @@
+---
+layout: default
+---
+
+<!--
+  Layout kategori blog — dipakai ulang oleh setiap halaman di
+  blog/categories/<slug>/index.html
+
+  Front matter yang dibaca:
+    title        : nama kategori, tampil sebagai "Kategori: <title>"
+    category_tag : tag yang difilter dari _posts (samakan dengan tags: di artikel)
+    icon         : kelas Font Awesome, mis. fa-headset (opsional)
+    blurb        : satu kalimat deskripsi (opsional)
+
+  Manajemen kategori ADA DI DUA TEMPAT dan keduanya harus sinkron:
+    1. _includes/category-nav.html  -> daftar tautan kategori di semua halaman
+    2. _posts/*.md                  -> artikel harus punya tags: [<category_tag>]
+-->
+<header class="blog-header">
+  <div class="container">
+    <h1 class="text-white mb-2">Kategori: {{ page.title }}</h1>
+    <div class="divider divider-light">
+      <div class="divider-line"></div>
+      <i class="fas {{ page.icon | default: 'fa-folder-open' }}"></i>
+      <div class="divider-line"></div>
+    </div>
+    <p class="text-white-50 mb-0">{{ page.blurb | default: 'Artikel dalam kategori ini.' }}</p>
+  </div>
+</header>
+
+{% include category-nav.html %}
+
+<section class="section">
+  <div class="container">
+    <div class="row g-4">
+      {% assign cat_posts = site.posts | where: "tags", page.category_tag %}
+      {% if cat_posts.size > 0 %}
+        {% for post in cat_posts %}
+          <div class="col-md-6 col-lg-4 reveal">
+            <article class="blog-card">
+              <span class="post-date">
+                <i class="far fa-calendar me-1"></i> {{ post.date | date: "%b %d, %Y" }}
+              </span>
+              <h2><a href="{{ post.url }}">{{ post.title }}</a></h2>
+              <p class="post-excerpt">
+                {% if post.excerpt %}{{ post.excerpt | strip_html | truncatewords: 25 }}{% endif %}
+              </p>
+              <a href="{{ post.url }}" class="read-more">
+                Read More <i class="fas fa-arrow-right"></i>
+              </a>
+            </article>
+          </div>
+        {% endfor %}
+      {% else %}
+        <div class="col-12 text-center">
+          <p>Belum ada artikel di kategori <strong>{{ page.title }}</strong>.</p>
+        </div>
+      {% endif %}
+    </div>
+
+    <div class="text-center mt-5">
+      <a href="/blog/" class="btn-outline">
+        <i class="fas fa-arrow-left me-2"></i> Kembali ke Blog
+      </a>
+    </div>
+  </div>
+</section>
+
+<script>
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) entry.target.classList.add('show');
+    });
+  }, { threshold: 0.1 });
+  document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
