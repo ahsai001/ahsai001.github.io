@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Flutter #52: Background Task dengan Workmanager"
-date: 2026-10-13 07:00:00 +0700
+date: 2026-10-13 08:00:00 +0700
 categories: [flutter]
 tags: [flutter, dart, tutorial, indonesia]
 ---
