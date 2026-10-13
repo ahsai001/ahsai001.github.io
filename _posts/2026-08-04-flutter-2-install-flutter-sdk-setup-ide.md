@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Flutter #2: Install Flutter SDK & Setup IDE (VS Code / Android Studio)"
-date: 2026-08-04 07:00:00 +0700
+date: 2026-08-04 08:00:00 +0700
 tags: [flutter, dart, mobile, tutorial]
 ---
 
