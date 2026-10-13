@@ -33,7 +33,7 @@ layout: default
 <section class="section">
   <div class="container">
     <div class="row g-4">
-      {% assign cat_posts = site.posts | where: "tags", page.category_tag %}
+      {% assign cat_posts = site.posts | where: "tags", page.category_tag | sort: "date" | reverse %}
       {% if cat_posts.size > 0 %}
         {% for post in cat_posts %}
           <div class="col-md-6 col-lg-4 reveal">

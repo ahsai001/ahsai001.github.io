@@ -1,6 +1,6 @@
 ---
 title: "Flutter #50: WebSocket Chat – Membuat Aplikasi Chat Real‑Time"
-date: 2026-10-09 08:00:00 +0800
+date: 2026-10-09 08:00:00 +0700
 categories: [flutter]
 tags: [flutter, dart, websocket, chat, realtime]
 ---

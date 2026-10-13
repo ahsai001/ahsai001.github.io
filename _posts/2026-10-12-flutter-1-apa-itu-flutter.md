@@ -1,7 +1,7 @@
 ---
 layout: post
 title: "Apa itu Flutter & Kenapa Harus Flutter"
-date: 2026-10-12 07:00:00 +0800
+date: 2026-10-12 07:00:00 +0700
 tags: [flutter, introduction, tutorial, indonesia]
 ---
 

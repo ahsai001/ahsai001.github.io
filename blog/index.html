@@ -24,7 +24,8 @@ permalink: /blog/
 <section class="section">
   <div class="container">
     <div class="row g-4">
-      {% for post in site.posts limit:12 %}
+      {% assign sorted_posts = site.posts | sort: "date" | reverse %}
+      {% for post in sorted_posts limit:12 %}
         <div class="col-md-6 col-lg-4 reveal">
           <article class="blog-card">
             <span class="post-date">
