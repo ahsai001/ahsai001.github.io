@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Custom Painter & Canvas"
+title: "Flutter #44: Custom Painter & Canvas"
 date: 2026-09-23 07:00:00 +0700
 tags: [flutter, custom painter, canvas, grafik]
 ---
