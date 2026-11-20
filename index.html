@@ -45,13 +45,14 @@
           <li class="nav-item"><a class="nav-link" href="#contact">Contact</a></li>
           <li class="nav-item dropdown">
             <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-              Tools
+              Platforms & Tools
             </a>
             <ul class="dropdown-menu dropdown-menu-dark">
-              <li class="dropdown-header text-uppercase small">Web Apps & Platforms</li>
+              <li class="dropdown-header text-uppercase small text-info">Web Apps & Platforms</li>
+              <li><a class="dropdown-item" href="https://office.ahsailabs.my.id" target="_blank" rel="noopener noreferrer"><i class="fas fa-robot me-2 text-info"></i> AI Virtual Office ↗</a></li>
               <li class="dropdown-submenu">
                 <a class="dropdown-item dropdown-toggle" href="https://sahabatmuslim.ahsailabs.my.id/dzikir" target="_blank" rel="noopener noreferrer" role="button">
-                  <i class="fas fa-mosque me-2"></i> Sahabat Muslim
+                  <i class="fas fa-mosque me-2 text-success"></i> Sahabat Muslim
                 </a>
                 <ul class="dropdown-menu dropdown-menu-dark submenu">
                   <li><a class="dropdown-item" href="https://sahabatmuslim.ahsailabs.my.id/dzikir?cat=pagi" target="_blank" rel="noopener noreferrer">🌅 Dzikir Pagi</a></li>
@@ -63,15 +64,17 @@
                   <li><a class="dropdown-item" href="https://sahabatmuslim.ahsailabs.my.id" target="_blank" rel="noopener noreferrer"><i class="fas fa-external-link-alt me-1"></i> Buka Sahabat Muslim ↗</a></li>
                 </ul>
               </li>
-              <li><a class="dropdown-item" href="https://ruqyah.ahsailabs.my.id" target="_blank" rel="noopener noreferrer"><i class="fas fa-quran me-2"></i> Ruqyah Mandiri ↗</a></li>
-              <li><a class="dropdown-item" href="https://hadirin.ahsailabs.my.id" target="_blank" rel="noopener noreferrer"><i class="fas fa-envelope-open-text me-2"></i> Hadirin (Undangan) ↗</a></li>
-              <li><a class="dropdown-item" href="https://prompt.ahsailabs.my.id" target="_blank" rel="noopener noreferrer"><i class="fas fa-terminal me-2"></i> Master Prompt Studio ↗</a></li>
-              <li><a class="dropdown-item" href="https://belajar.ahsailabs.my.id" target="_blank" rel="noopener noreferrer"><i class="fas fa-shapes me-2"></i> Pojok Belajar Anak ↗</a></li>
+              <li><a class="dropdown-item" href="https://ruqyah.ahsailabs.my.id" target="_blank" rel="noopener noreferrer"><i class="fas fa-quran me-2 text-primary"></i> Ruqyah Mandiri ↗</a></li>
+              <li><a class="dropdown-item" href="https://hadirin.ahsailabs.my.id" target="_blank" rel="noopener noreferrer"><i class="fas fa-envelope-open-text me-2 text-warning"></i> Hadirin (Undangan) ↗</a></li>
+              <li><a class="dropdown-item" href="https://prompt.ahsailabs.my.id" target="_blank" rel="noopener noreferrer"><i class="fas fa-terminal me-2 text-danger"></i> Master Prompt Studio ↗</a></li>
+              <li><a class="dropdown-item" href="https://belajar.ahsailabs.my.id" target="_blank" rel="noopener noreferrer"><i class="fas fa-shapes me-2 text-info"></i> Pojok Belajar Anak ↗</a></li>
               <li><hr class="dropdown-divider"></li>
               <li class="dropdown-header text-uppercase small">Other Tools</li>
               <li><a class="dropdown-item" href="simpletools/index.html"><i class="fas fa-wrench me-2"></i> Simple Tools</a></li>
               <li><a class="dropdown-item" href="tools/token-analyzer.html"><i class="fas fa-chart-line me-2"></i> Token Analyzer</a></li>
               <li><a class="dropdown-item" href="tools/connection-checker.html"><i class="fas fa-plug me-2"></i> Connection Checker</a></li>
+              <li><hr class="dropdown-divider"></li>
+              <li><a class="dropdown-item" href="https://ahsailabs.my.id" target="_blank" rel="noopener"><i class="fas fa-globe me-2"></i> ahsailabs.my.id ↗</a></li>
             </ul>
           </li>
         </ul>
@@ -111,6 +114,19 @@
         <div class="divider-line"></div>
       </div>
       <div class="row g-4 mt-3">
+        <!-- AI Virtual Office (Featured Web Platform) -->
+        <div class="col-md-6 col-lg-4 reveal">
+          <div class="project-card" data-bs-toggle="modal" data-bs-target="#projectModalAIOffice">
+            <div class="project-card-img" style="background: linear-gradient(135deg, #090d16 0%, #1e1b4b 55%, #312e81 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 250px; color: #fff; text-align: center; padding: 2rem; border-radius: var(--radius-lg); position: relative; border: 1px solid rgba(99,102,241,0.25);">
+              <div style="font-size: 3.2rem; margin-bottom: 0.75rem; color: #38bdf8;"><i class="fas fa-robot"></i></div>
+              <h4 style="font-weight: 700; margin: 0; color: #fff; font-size: 1.25rem;">AI Virtual Office</h4>
+              <span class="badge bg-primary mt-2" style="font-size: 0.75rem; letter-spacing: 0.5px; padding: 0.35rem 0.75rem; border-radius: 1rem;">Multi-Agent Platform</span>
+              <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 0.6rem; margin-bottom: 0;">Multi-Tenant Virtual Workplace (BYOK)</p>
+              <div class="project-card-overlay"><span><i class="fas fa-external-link-alt me-1"></i> View Details & Link</span></div>
+            </div>
+          </div>
+        </div>
+
         <!-- Project 1 -->
         <div class="col-md-6 col-lg-4 reveal">
           <div class="project-card" data-bs-toggle="modal" data-bs-target="#projectModal1">
@@ -396,6 +412,36 @@
   </a>
 
   <!-- ===================== MODALS ===================== -->
+
+  <!-- Project Modal AI Virtual Office -->
+  <div class="modal fade" id="projectModalAIOffice" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header border-0">
+          <h5 class="modal-title">AI Virtual Office</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center">
+          <div class="p-4 mb-4 rounded-4" style="background: linear-gradient(135deg, #090d16 0%, #1e1b4b 55%, #312e81 100%); color: #fff; border: 1px solid rgba(99,102,241,0.3);">
+            <i class="fas fa-robot fa-4x mb-3" style="color: #38bdf8;"></i>
+            <h3 class="fw-bold mb-1">AI Virtual Office</h3>
+            <p class="text-info mb-0">Multi-Tenant Multi-Agent Orchestration & Virtual Workplace</p>
+          </div>
+          <p class="text-muted mb-4 text-start">
+            <strong>AI Virtual Office</strong> (<code>office.ahsailabs.my.id</code>) adalah platform virtual workplace cerdas multi-tenant yang mendukung kolaborasi tim multi-agent AI, Bring Your Own Key (BYOK), integrasi Google Login, pencarian web otomatis (DuckDuckGo), koordinasi real-time melalui WebSocket, serta ekspor dokumen/ebook laporan dalam format PDF.
+          </p>
+          <div class="d-flex justify-content-center gap-2 flex-wrap">
+            <a href="https://office.ahsailabs.my.id" target="_blank" rel="noopener" class="btn btn-primary px-4 py-2">
+              <i class="fas fa-external-link-alt me-1"></i> Buka office.ahsailabs.my.id ↗
+            </a>
+            <button class="btn btn-secondary px-4 py-2" data-bs-dismiss="modal">
+              <i class="fas fa-times me-1"></i> Tutup
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <!-- Project Modal 1 -->
   <div class="modal fade" id="projectModal1" tabindex="-1" aria-hidden="true">
